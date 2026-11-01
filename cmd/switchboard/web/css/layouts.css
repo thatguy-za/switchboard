@@ -47,8 +47,6 @@
 .pane.on .phead .pname { color: var(--text); }
 .phead button { height: var(--h-icon-btn-sm); font-size: var(--fs-xs); }
 .phead button.icon { width: var(--h-icon-btn-sm); }
-.phead button.fwd { padding: 0 var(--s-4); gap: var(--s-3); color: var(--text-2); border: 0; background: transparent; }
-.phead button.fwd.bad { color: var(--danger); }
 .phead .dot { margin-right: var(--s-1); }
 .phead button.news::after { content: ""; width: var(--s-3); height: var(--s-3); border-radius: 50%; background: var(--acc); margin-left: var(--s-2); }
 
@@ -93,8 +91,6 @@
   .setting { flex-wrap: wrap; }
   .setting .ctl { justify-content: flex-start; }
   .page { padding-top: var(--s-12); }
-  .frow { grid-template-columns: 1fr 1fr; }
-  .frow > span { display: none; }
   .tabs { padding: 0 var(--s-3); }
   dialog { margin: auto auto var(--s-6); }
   dialog.palette { margin: 8vh auto auto; }

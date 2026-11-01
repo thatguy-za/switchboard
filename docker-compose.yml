@@ -7,8 +7,6 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000" # exposing this to the internet? bind it to 127.0.0.1 and use an HTTPS reverse proxy: see the README
-      # A local port forward listens inside the container; to reach one from outside, publish its port here too:
-      # - "8443:8443"
     # environment:
     #   SWITCHBOARD_SESSION_TIMEOUT: "30m"   # sign people out after this long idle
     #   SWITCHBOARD_MAX_RDP: "10"            # most remote desktops open at once

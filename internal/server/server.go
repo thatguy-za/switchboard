@@ -35,7 +35,7 @@ var usernameRe = regexp.MustCompile(`^[a-zA-Z0-9._-]{2,32}$`)
 
 type Config struct {
 	DataDir, KeysDir string
-	Port             int // the web port; local forwards may not listen on it
+	Port             int // the web port
 	SessionTimeout   time.Duration
 	Guacd            string // host:port of guacd, for RDP
 	TransferDir      string // folder shared with guacd for RDP file transfer; empty turns it off

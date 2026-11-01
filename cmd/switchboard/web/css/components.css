@@ -122,10 +122,6 @@ summary::-webkit-details-marker { display: none; }
 summary::before { content: ""; width: var(--s-3); height: var(--s-3); border-right: 1.5px solid var(--text-3); border-bottom: 1.5px solid var(--text-3); transform: rotate(-45deg); transition: transform var(--dur-base) var(--ease-out); margin-right: var(--s-2); }
 details[open] > summary::before { transform: rotate(45deg); }
 details > *:not(summary) { margin-top: var(--s-5); }
-.jrow { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-2) 0; }
-.frow { display: grid; grid-template-columns: var(--w-forward-kind) var(--w-forward-port) var(--s-7) minmax(0, 1fr) var(--w-forward-port) var(--h-icon-btn); gap: var(--s-3); align-items: center; margin-bottom: var(--s-3); }
-.frow select, .frow input { height: var(--h-control-sm); font-size: var(--fs-xs); padding: 0 var(--s-4); }
-.frow select { padding-right: var(--s-12); background-position: right var(--s-3) center; }
 .pushlist { max-height: 38vh; overflow: auto; border: 1px solid var(--line); border-radius: var(--r-md); }
 .prow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-1) var(--s-5); padding: var(--s-4) var(--s-6); border-bottom: 1px solid var(--line); font-weight: var(--fw-regular); color: var(--text); }
 .prow:last-child { border-bottom: 0; }
@@ -159,11 +155,8 @@ dialog.palette { width: min(var(--w-palette), calc(100% - var(--s-12))); margin:
 /* @component popover */
 .popover { position: absolute; top: var(--s-4); right: var(--s-4); z-index: var(--z-popover); width: min(var(--w-popover), calc(100% - var(--s-8))); max-height: calc(100% - var(--s-8)); overflow: auto; display: grid; gap: var(--s-5);
   background: var(--surface-raised); color: var(--text); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); padding: var(--s-7) var(--s-8); }
-.popover.below-head { top: calc(var(--h-phead) + var(--s-4)); width: auto; min-width: var(--w-fwdlist); font-size: var(--fs-xs); padding: var(--s-4) var(--s-6); gap: 0; }
 .popover .actions { display: flex; gap: var(--s-4); }
 .popover textarea { font-family: var(--font-mono); font-size: var(--fs-xs); }
-.fline { display: flex; justify-content: space-between; gap: var(--s-7); padding: var(--s-2) 0; }
-.fline.bad .muted { color: var(--danger); }
 .filelist { max-height: 30vh; overflow: auto; display: grid; margin: 0 calc(var(--s-3) * -1); }
 .fentry { justify-content: flex-start; height: var(--h-control-sm); border-color: transparent; background: transparent; padding: 0 var(--s-4); overflow-wrap: anywhere; font-weight: var(--fw-regular); }
 .filecrumb { display: flex; align-items: center; gap: var(--s-4); color: var(--text-2); }

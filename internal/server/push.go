@@ -81,10 +81,6 @@ func (s *Server) pushKey(ctx context.Context, a *authed, ident *store.Identity, 
 	if host.Protocol != "ssh" {
 		return pushError("unsupported", "Keys can only be pushed to SSH hosts.")
 	}
-	hops, _, err := s.chainFor(host, a)
-	if err != nil {
-		return pushError("error", "This host's jump list is no longer valid.")
-	}
 	line := strings.TrimSpace(ident.PublicKey)
 	if line == "" || strings.ContainsAny(line, "\r\n") || strings.Contains(line, "SWITCHBOARD_KEY_EOF") {
 		return pushError("error", "This identity's public key can't be pushed.")
@@ -92,7 +88,7 @@ func (s *Server) pushKey(ctx context.Context, a *authed, ident *store.Identity, 
 
 	// Connect with the host's current credentials. Host keys are never prompted
 	// for here: an untrusted key has to be reviewed in a terminal first.
-	client, closeAll, he := s.connectChain(ctx, hops, a, func(serverMsg) {}, nil, nil)
+	client, closeAll, he := s.connectHost(ctx, host, a, func(serverMsg) {}, nil, nil)
 	if he != nil {
 		return connectFailure(he)
 	}
@@ -118,7 +114,7 @@ func (s *Server) pushKey(ctx context.Context, a *authed, ident *store.Identity, 
 		return classifyScriptFailure(text, err)
 	}
 
-	if msg := s.verifyKeyLogin(ctx, a, ident, hops); msg != "" {
+	if msg := s.verifyKeyLogin(ctx, a, ident, host); msg != "" {
 		return pushError("verify_failed", msg)
 	}
 	if err := s.db.SetHostIdentity(host.ID, a.user.ID, ident.ID); err != nil {
@@ -130,7 +126,7 @@ func (s *Server) pushKey(ctx context.Context, a *authed, ident *store.Identity, 
 
 // verifyKeyLogin signs in again offering only the new key. It returns a
 // message when that fails, and "" when it works.
-func (s *Server) verifyKeyLogin(ctx context.Context, a *authed, ident *store.Identity, hops []*store.Host) string {
+func (s *Server) verifyKeyLogin(ctx context.Context, a *authed, ident *store.Identity, host *store.Host) string {
 	pemBytes, err := crypto.OpenSecret(s.master, a.sess.vk, ident.ID, ident.PrivateBlob)
 	if err != nil {
 		return "The identity's private key could not be read."
@@ -140,7 +136,7 @@ func (s *Server) verifyKeyLogin(ctx context.Context, a *authed, ident *store.Ide
 	if err != nil {
 		return "The identity's private key could not be read."
 	}
-	client, closeAll, he := s.connectChain(ctx, hops, a, func(serverMsg) {}, nil, []ssh.AuthMethod{ssh.PublicKeys(signer)})
+	client, closeAll, he := s.connectHost(ctx, host, a, func(serverMsg) {}, nil, []ssh.AuthMethod{ssh.PublicKeys(signer)})
 	if he != nil {
 		return "The key was added, but signing in with it failed. The server may have public key login turned off, or its permissions on your home directory may be too open. This host still uses its old credentials."
 	}

@@ -189,10 +189,8 @@ function renderWelcome() {
 
 // opts.prefill fills a new host's fields; opts.thenOpen opens it once saved.
 function hostDialog(host, opts = {}) {
-  const defaults = { name: '', folder_id: '', address: '', port: 22, username: '', auth: 'password', identity_id: '', has_password: false, theme: 'auto', jumps: [], forwards: [], protocol: 'ssh', security: 'any', ignore_cert: true };
+  const defaults = { name: '', folder_id: '', address: '', port: 22, username: '', auth: 'password', identity_id: '', has_password: false, theme: 'auto', protocol: 'ssh', security: 'any', ignore_cert: true };
   const h = host || { ...defaults, ...(opts.prefill || {}) };
-  const jumps = [...h.jumps];
-  const fwds = h.forwards.map(f => ({ ...f }));
   const idOpts = WS.identities.length
     ? WS.identities.map(i => `<option value="${esc(i.id)}"${i.id === h.identity_id ? ' selected' : ''}>${esc(i.name)}</option>`).join('')
     : '<option value="">No identities yet</option>';
@@ -221,18 +219,7 @@ function hostDialog(host, opts = {}) {
     <label class="check" data-proto="rdp"><input type="checkbox" name="ignore_cert"${h.ignore_cert ? ' checked' : ''}> Accept self-signed certificates
       <span class="small">Windows PCs usually have one. Turn this off on networks you don't trust.</span></label>
     ${h.has_password ? '<label class="check"><input type="checkbox" name="forget"> Forget the saved password</label>' : ''}
-    <label data-sshonly>Terminal colours<select name="theme">${themeOpts}</select></label>
-    <details id="jsec" data-sshonly${jumps.length ? ' open' : ''}><summary>Jump hosts</summary>
-      <p class="small muted">Connect through these hosts first, in order. Each one signs in with its own saved credentials.</p>
-      <div id="jlist"></div>
-      <div class="inline"><label>Add a hop<select id="jadd"></select></label><button type="button" id="jbtn">Add</button></div>
-    </details>
-    <details id="fsec" data-sshonly${fwds.length ? ' open' : ''}><summary>Port forwards</summary>
-      <p class="small muted"><strong>Local:</strong> Switchboard listens on the port and reaches the destination through this host.
-        <strong>Remote:</strong> this host listens on its loopback port and reaches the destination from Switchboard.
-        Forwards last while a terminal for this host is open. To reach a local forward from your own machine, publish its port on the Switchboard container.</p>
-      <div id="flist"></div><button type="button" id="fadd">${icon('plus')}Add forward</button>
-    </details>`, {
+    <label data-sshonly>Terminal colours<select name="theme">${themeOpts}</select></label>`, {
     wide: true,
     extra: host ? '<button type="button" class="danger" data-del>Delete</button>' : '',
     onSubmit: async fd => {
@@ -243,17 +230,11 @@ function hostDialog(host, opts = {}) {
         auth: rdp ? 'password' : fd.get('auth'),
         identity_id: !rdp && fd.get('auth') === 'key' ? fd.get('identity_id') : '', theme: rdp ? 'auto' : fd.get('theme'),
         security: fd.get('security'), ignore_cert: fd.get('ignore_cert') !== null,
-        jumps: rdp ? [] : jumps,
-        forwards: rdp ? [] : fwds.map(f => ({ kind: f.kind, bind_port: Number(f.bind_port), dest_host: String(f.dest_host || '').trim(), dest_port: Number(f.dest_port) })),
       };
       if (rdp && !host && !fd.get('password')) throw new Error('Enter the password for this host.');
       if (body.auth === 'key' && !body.identity_id) throw new Error('Choose an identity, or create one on the Identities page.');
       if (body.auth === 'password' && (fd.get('password') || !host)) body.password = fd.get('password');
       if (fd.get('forget') && !fd.get('password')) body.password = '';
-      for (const f of body.forwards) {
-        if (!f.bind_port || !f.dest_host || !f.dest_port) throw new Error('Fill in every port forward, or remove the empty ones.');
-        if (f.kind === 'local' && f.bind_port < 1024) throw new Error('Local forwards need a port of 1024 or higher.');
-      }
       const saved = await api(host ? 'PUT' : 'POST', host ? '/hosts/' + host.id : '/hosts', body);
       await Promise.all([loadHosts(), loadIdentities()]);
       toast(host ? 'Host saved' : 'Host added');
@@ -277,65 +258,6 @@ function hostDialog(host, opts = {}) {
   });
   d.querySelector('[name=auth]').addEventListener('change', sync);
   sync();
-
-  const hostName = id => (WS.hosts.find(x => x.id === id) || { name: '(deleted host)' }).name;
-  const drawJumps = () => {
-    d.querySelector('#jlist').innerHTML = jumps.map((id, i) => `
-      <div class="jrow"><span class="faint small">${i + 1}</span><span class="grow">${esc(hostName(id))}</span>
-        ${iconButton('arrow-up', 'Move up', `data-up="${i}"${i === 0 ? ' disabled' : ''}`)}
-        ${iconButton('arrow-up', 'Move down', `data-down="${i}"${i === jumps.length - 1 ? ' disabled' : ''}`, 'flip')}
-        ${iconButton('x', 'Remove', `data-rm="${i}"`)}</div>`).join('');
-    const options = WS.hosts.filter(x => x.protocol !== 'rdp' && (!host || x.id !== host.id) && !jumps.includes(x.id)).sort(byName);
-    d.querySelector('#jadd').innerHTML = options.length
-      ? options.map(x => `<option value="${esc(x.id)}">${esc(x.name)}</option>`).join('') : '<option value="">No other SSH hosts</option>';
-    d.querySelector('#jbtn').disabled = !options.length || jumps.length >= 5;
-  };
-  d.querySelector('#jlist').addEventListener('click', ev => {
-    const b = ev.target.closest('button');
-    if (!b) return;
-    const [k, i] = Object.entries(b.dataset)[0];
-    const n = Number(i);
-    if (k === 'rm') jumps.splice(n, 1);
-    else if (k === 'up' && n > 0) [jumps[n - 1], jumps[n]] = [jumps[n], jumps[n - 1]];
-    else if (k === 'down' && n < jumps.length - 1) [jumps[n + 1], jumps[n]] = [jumps[n], jumps[n + 1]];
-    drawJumps();
-  });
-  d.querySelector('#jbtn').addEventListener('click', () => {
-    const id = d.querySelector('#jadd').value;
-    if (id) { jumps.push(id); drawJumps(); }
-  });
-  drawJumps();
-
-  const drawFwds = () => {
-    d.querySelector('#flist').innerHTML = fwds.map((f, i) => `
-      <div class="frow" data-i="${i}">
-        <select data-k="kind" aria-label="Type"><option value="local"${f.kind === 'local' ? ' selected' : ''}>Local</option>
-          <option value="remote"${f.kind === 'remote' ? ' selected' : ''}>Remote</option></select>
-        <input type="number" data-k="bind_port" min="1" max="65535" placeholder="Port" aria-label="Listen port" value="${esc(f.bind_port || '')}">
-        <span class="faint">→</span>
-        <input type="text" data-k="dest_host" placeholder="Host" aria-label="Destination host" value="${esc(f.dest_host || '')}" autocapitalize="off" spellcheck="false">
-        <input type="number" data-k="dest_port" min="1" max="65535" placeholder="Port" aria-label="Destination port" value="${esc(f.dest_port || '')}">
-        ${iconButton('x', 'Remove forward', `data-rm="${i}"`)}</div>`).join('');
-  };
-  d.querySelector('#flist').addEventListener('input', ev => {
-    const row = ev.target.closest('.frow');
-    if (row && ev.target.dataset.k) fwds[Number(row.dataset.i)][ev.target.dataset.k] = ev.target.value;
-  });
-  d.querySelector('#flist').addEventListener('change', ev => {
-    const row = ev.target.closest('.frow');
-    if (row && ev.target.dataset.k) fwds[Number(row.dataset.i)][ev.target.dataset.k] = ev.target.value;
-  });
-  d.querySelector('#flist').addEventListener('click', ev => {
-    const b = ev.target.closest('[data-rm]');
-    if (b) { fwds.splice(Number(b.dataset.rm), 1); drawFwds(); }
-  });
-  d.querySelector('#fadd').addEventListener('click', () => {
-    fwds.push({ kind: 'local', bind_port: '', dest_host: 'localhost', dest_port: '' });
-    drawFwds();
-    const last = d.querySelector('#flist .frow:last-child [data-k=bind_port]');
-    if (last) last.focus();
-  });
-  drawFwds();
 
   const del = d.querySelector('[data-del]');
   if (del) del.addEventListener('click', () => {
@@ -543,25 +465,10 @@ function refreshLive() {
   if (key !== WS.liveKey) renderTree();
 }
 
-function forwardLabel(f) {
-  return `${f.kind === 'remote' ? 'remote ' : ''}:${f.bind_port} → ${f.dest_host}:${f.dest_port}`;
-}
-
 function updateHead(sess) {
   const head = sess.head;
   head.querySelector('.dot').className = 'dot ' + sess.state;
   head.querySelector('.pname').textContent = sess.host.name;
-  const rules = sess.host.forwards || [];
-  const btn = head.querySelector('[data-act=fwd]');
-  btn.hidden = !rules.length;
-  const ok = rules.filter((_, i) => sess.fwd[i] && sess.fwd[i].ok).length;
-  btn.textContent = `Forwards ${ok}/${rules.length}`;
-  btn.classList.toggle('bad', rules.some((_, i) => sess.fwd[i] && !sess.fwd[i].ok));
-  sess.fwdList.innerHTML = rules.map((f, i) => {
-    const st = sess.fwd[i];
-    const label = st ? (st.ok ? 'active' : esc(st.message || 'failed')) : (sess.state === 'live' ? 'starting' : 'not running');
-    return `<div class="fline${st && !st.ok ? ' bad' : ''}"><code>${esc(forwardLabel(f))}</code><span class="muted">${label}</span></div>`;
-  }).join('');
 }
 
 function newSession(host, wtab) {
@@ -579,11 +486,9 @@ function newSshSession(host, wtab) {
   const pane = el('div', 'pane');
   pane.innerHTML = `
     <div class="phead"><span class="dot"></span><span class="pname"></span><span class="grow"></span>
-      <button type="button" class="quiet fwd" data-act="fwd" hidden></button>
       ${iconButton('layout-columns', 'Split right', 'data-act="split-row"')}
       ${iconButton('layout-rows', 'Split down', 'data-act="split-col"')}
       ${iconButton('x', 'Close pane', 'data-act="close"')}</div>
-    <div class="popover below-head fwdlist" hidden></div>
     <div class="term"></div>
     <div class="tover" hidden></div>`;
   const term = new Terminal({
@@ -593,9 +498,9 @@ function newSshSession(host, wtab) {
   const fit = new FitAddon.FitAddon();
   term.loadAddon(fit);
   const sess = {
-    kind: 'ssh', host, wtab, term, fit, pane, head: pane.querySelector('.phead'), fwdList: pane.querySelector('.fwdlist'),
+    kind: 'ssh', host, wtab, term, fit, pane, head: pane.querySelector('.phead'),
     holder: pane.querySelector('.term'), overlay: pane.querySelector('.tover'),
-    sock: null, state: 'connecting', retries: 0, timer: null, closed: false, connectedBefore: false, opened: false, fwd: [],
+    sock: null, state: 'connecting', retries: 0, timer: null, closed: false, connectedBefore: false, opened: false,
   };
   sess.holder.style.setProperty('--term-bg', themeFor(host.theme).background); // ds-allow: a per-host colour read from the tokens
   sess.ro = new ResizeObserver(() => requestAnimationFrame(() => fitSess(sess)));
@@ -606,7 +511,6 @@ function newSshSession(host, wtab) {
     const b = ev.target.closest('[data-act]');
     if (!b) return;
     if (b.dataset.act === 'close') closeSession(sess);
-    else if (b.dataset.act === 'fwd') sess.fwdList.hidden = !sess.fwdList.hidden;
     else splitSession(sess, b.dataset.act === 'split-row' ? 'row' : 'col');
   });
   updateHead(sess);
@@ -641,7 +545,6 @@ function focusSession(sess) {
 function connect(sess) {
   if (sess.kind === 'rdp') return rdpConnect(sess);
   clearTimeout(sess.timer);
-  sess.fwd = [];
   setState(sess, 'connecting');
   showOverlay(sess, { title: 'Connecting…' });
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -663,19 +566,18 @@ function onControl(sess, m) {
     case 'hostkey': {
       setState(sess, 'hostkey');
       const name = esc(m.host || sess.host.name);
-      const hop = m.host && m.host !== sess.host.name ? `This is a jump host on the way to ${esc(sess.host.name)}. ` : '';
       const answer = accept => () => { sendCtl(sess, { type: 'trust', accept }); showOverlay(sess, { title: 'Connecting…' }); };
       if (m.changed) {
         showOverlay(sess, {
           tone: 'danger', title: `The host key for ${name} has changed`,
-          text: `${hop}Someone may be intercepting this connection, or the server was reinstalled. Only continue if you know why.
+          text: `Someone may be intercepting this connection, or the server was reinstalled. Only continue if you know why.
             <span class="fp-label">Saved</span><code class="fp">${esc(m.old_fingerprint)}</code><span class="fp-label">Now (${esc(m.key_type)})</span><code class="fp">${esc(m.fingerprint)}</code>`,
           buttons: [{ label: 'Disconnect', cls: 'primary', fn: answer(false) }, { label: 'Accept new key', cls: 'danger', fn: answer(true) }],
         });
       } else {
         showOverlay(sess, {
           title: `First connection to ${name}`,
-          text: `${hop}Check that this fingerprint is the server you expect before you continue.<span class="fp-label">${esc(m.key_type)}</span><code class="fp">${esc(m.fingerprint)}</code>`,
+          text: `Check that this fingerprint is the server you expect before you continue.<span class="fp-label">${esc(m.key_type)}</span><code class="fp">${esc(m.fingerprint)}</code>`,
           buttons: [{ label: 'Trust and connect', cls: 'primary', fn: answer(true) }, { label: 'Cancel', cls: 'quiet', fn: answer(false) }],
         });
       }
@@ -689,10 +591,6 @@ function onControl(sess, m) {
       setState(sess, 'live');
       sendCtl(sess, { type: 'resize', cols: sess.term.cols, rows: sess.term.rows });
       if (WS.active && WS.active.active === sess) sessFocus(sess);
-      break;
-    case 'forward':
-      sess.fwd[m.forward.index] = m.forward;
-      updateHead(sess);
       break;
     case 'error':
       if (m.retry && sess.connectedBefore && sess.retries < 8) { scheduleReconnect(sess); break; }

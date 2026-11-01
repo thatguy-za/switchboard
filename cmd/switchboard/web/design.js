@@ -110,7 +110,7 @@ const COMPONENTS = [
       <div class="pal-group">Actions</div><div class="pal-row">${icon('plus')}<span>New host</span></div></div></dialog></div>` },
   { id: 'toast', name: 'Toast', description: 'Confirms something that already happened. Gone in a couple of seconds.',
     render: () => `<div class="stage"><div class="toast">${icon('circle-check')}<span>Host saved</span></div><div class="toast err">${icon('alert-triangle')}<span>Copy failed</span></div></div>` },
-  { id: 'popover', name: 'Popover', description: 'A small panel that floats over a pane: the clipboard, files, forwards.',
+  { id: 'popover', name: 'Popover', description: 'A small panel that floats over a pane: the clipboard and files.',
     render: () => `<div class="stage tall"><div class="popover"><div class="section-head"><h3>Clipboard</h3>${iconButton('x', 'Close')}</div>
       <p class="small muted">Text copied on the remote desktop shows up here.</p><textarea rows="3"></textarea>
       <div class="actions">${button('Send to remote', { kind: 'primary sm' })}${button('Copy', { kind: 'sm', icon: 'copy' })}</div></div></div>` },

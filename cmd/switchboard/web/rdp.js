@@ -11,7 +11,6 @@ function newRdpSession(host, wtab) {
   const pane = el('div', 'pane');
   pane.innerHTML = `
     <div class="phead"><span class="dot"></span><span class="pname"></span><span class="grow"></span>
-      <button type="button" class="quiet fwd" data-act="fwd" hidden></button>
       <button type="button" class="quiet" data-act="kbd" hidden>${icon('keyboard')}Keyboard</button>
       <button type="button" class="quiet" data-act="cad" title="Send Ctrl+Alt+Delete to the remote desktop">Ctrl+Alt+Del</button>
       ${iconButton('clipboard', 'Clipboard', 'data-act="clip"')}
@@ -19,7 +18,6 @@ function newRdpSession(host, wtab) {
       ${iconButton('layout-columns', 'Split right', 'data-act="split-row"')}
       ${iconButton('layout-rows', 'Split down', 'data-act="split-col"')}
       ${iconButton('x', 'Close pane', 'data-act="close"')}</div>
-    <div class="popover below-head fwdlist" hidden></div>
     <div class="rdpwrap">
       <div class="rdpscreen"></div>
       <textarea class="sink" aria-label="Remote desktop keyboard input" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
@@ -42,7 +40,7 @@ function newRdpSession(host, wtab) {
     </div>
     <div class="tover" hidden></div>`;
   const sess = {
-    kind: 'rdp', host, wtab, pane, head: pane.querySelector('.phead'), fwdList: pane.querySelector('.fwdlist'),
+    kind: 'rdp', host, wtab, pane, head: pane.querySelector('.phead'),
     holder: pane.querySelector('.rdpwrap'), screen: pane.querySelector('.rdpscreen'), sink: pane.querySelector('.sink'),
     clipPanel: pane.querySelector('.popover.clip'), clipArea: pane.querySelector('.cliptext'),
     filePanel: pane.querySelector('.popover.files'), overlay: pane.querySelector('.tover'),

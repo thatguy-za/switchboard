@@ -56,22 +56,10 @@ server and never reaches the browser.
   certificates* is on by default. Turn it off per host on networks you don't trust.
 - `DOMAIN\user` works as a username. Set `SWITCHBOARD_MAX_RDP` (default 10) to limit concurrent desktops.
 
-Not included yet: microphone, printing, multiple monitors, other keyboard layouts (US only), RDP through
-jump hosts, and a polished on-screen keyboard on phones (typing there is best effort).
+Not included yet: microphone, printing, multiple monitors, other keyboard layouts (US only), and a polished on-screen keyboard on phones (typing there is best effort).
 The image is built on `guacamole/guacd:1.6.0`, which is published for both amd64 and arm64.
 
-### Jump hosts, forwards and split panes
-
-A host can list jump hosts to connect through, in order. Each hop signs in with its own saved
-credentials and has its own trusted host key, so a changed key on a bastion blocks the connection
-just as it does for the target.
-
-Port forwards belong to a host and last while a terminal for it is open. A *local* forward makes the
-Switchboard container listen on the port you choose and reach the destination through the host.
-To use one from your own machine, publish that port in `docker-compose.yml`, for example
-`- "8443:8443"`. Anyone who can reach a published port can use the forward, so publish only what you
-mean to share. A *remote* forward has the SSH server listen on its loopback and reach the
-destination from the Switchboard container.
+### Split panes
 
 Each terminal tab can be split right or down into up to six panes, each its own session. Drag the dividers to resize.
 

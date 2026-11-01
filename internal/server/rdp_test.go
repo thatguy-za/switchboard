@@ -429,13 +429,7 @@ func TestRDPHostRules(t *testing.T) {
 	if code, out := u.do("GET", "/api/ws/rdp/"+sshID, nil); code != 400 || out["error"] != "wrong_protocol" {
 		t.Fatalf("rdp endpoint on an ssh host: %d %v", code, out)
 	}
-	// RDP hosts can't be jump hosts, take jump hosts, or forward ports; and keys can't be pushed to them.
-	if code, _ := u.do("POST", "/api/hosts", map[string]any{"name": "x", "address": "x", "auth": "password", "jumps": []string{rdpID}}); code != 400 {
-		t.Fatalf("rdp host used as a jump host: %d", code)
-	}
-	if code, _ := u.do("POST", "/api/hosts", map[string]any{"name": "x", "protocol": "rdp", "address": "x", "jumps": []string{sshID}}); code != 400 {
-		t.Fatalf("rdp host with a jump host: %d", code)
-	}
+	// Keys can't be pushed to RDP hosts.
 	if code, _ := u.do("POST", "/api/hosts", map[string]any{"name": "x", "protocol": "rdp", "address": "x", "security": "bogus"}); code != 400 {
 		t.Fatalf("bad security mode: %d", code)
 	}

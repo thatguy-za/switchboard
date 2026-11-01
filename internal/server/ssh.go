@@ -29,22 +29,15 @@ type clientMsg struct {
 	Accept bool   `json:"accept"`
 }
 
-type fwdStatus struct {
-	Index   int    `json:"index"`
-	OK      bool   `json:"ok"`
-	Message string `json:"message,omitempty"`
-}
-
 type serverMsg struct {
-	Type        string     `json:"type"`
-	Message     string     `json:"message,omitempty"`
-	Host        string     `json:"host,omitempty"` // which host a hostkey prompt is about
-	KeyType     string     `json:"key_type,omitempty"`
-	Fingerprint string     `json:"fingerprint,omitempty"`
-	OldPrint    string     `json:"old_fingerprint,omitempty"`
-	Changed     bool       `json:"changed,omitempty"`
-	Retry       bool       `json:"retry,omitempty"` // the failure may be temporary
-	Forward     *fwdStatus `json:"forward,omitempty"`
+	Type        string `json:"type"`
+	Message     string `json:"message,omitempty"`
+	Host        string `json:"host,omitempty"` // which host a hostkey prompt is about
+	KeyType     string `json:"key_type,omitempty"`
+	Fingerprint string `json:"fingerprint,omitempty"`
+	OldPrint    string `json:"old_fingerprint,omitempty"`
+	Changed     bool   `json:"changed,omitempty"`
+	Retry       bool   `json:"retry,omitempty"` // the failure may be temporary
 }
 
 // How often a terminal's WebSocket is pinged, so that reverse proxies with an
@@ -79,11 +72,9 @@ func (t *termSize) get() (int, int) {
 	return t.cols, t.rows
 }
 
-// hopError is a failure to reach or authenticate to one hop of a chain.
+// hopError is a failure to reach or authenticate to the host.
 type hopError struct {
 	hop       *store.Host
-	via       *store.Host // the jump host this hop was dialled through, if any
-	jump      bool
 	unreached bool
 	err       error
 }
@@ -91,19 +82,10 @@ type hopError struct {
 func (e *hopError) Error() string { return e.err.Error() }
 
 func (e *hopError) message() string {
-	prefix := ""
-	if e.jump {
-		prefix = "Jump host " + e.hop.Name + ": "
-	}
 	if e.unreached {
-		addr := net.JoinHostPort(e.hop.Address, strconv.Itoa(e.hop.Port))
-		if e.via != nil {
-			return "Could not reach " + addr + " through jump host " + e.via.Name +
-				". Check the address, and that the jump host allows TCP forwarding (AllowTcpForwarding in its sshd_config)."
-		}
-		return prefix + "could not reach " + addr + "."
+		return "could not reach " + net.JoinHostPort(e.hop.Address, strconv.Itoa(e.hop.Port)) + "."
 	}
-	return prefix + describeSSHError(e.err)
+	return describeSSHError(e.err)
 }
 
 func (s *Server) handleSSH(w http.ResponseWriter, r *http.Request, a *authed) {
@@ -114,11 +96,6 @@ func (s *Server) handleSSH(w http.ResponseWriter, r *http.Request, a *authed) {
 	}
 	if host.Protocol != "ssh" {
 		apiErr(w, http.StatusBadRequest, "wrong_protocol")
-		return
-	}
-	hops, forwards, err := s.chainFor(host, a)
-	if err != nil {
-		apiErr(w, http.StatusConflict, "bad_chain")
 		return
 	}
 	c, err := websocket.Accept(w, r, nil)
@@ -211,7 +188,7 @@ func (s *Server) handleSSH(w http.ResponseWriter, r *http.Request, a *authed) {
 
 	send(serverMsg{Type: "status", Message: "connecting"})
 
-	client, closeAll, he := s.connectChain(ctx, hops, a, send, trustCh, nil)
+	client, closeAll, he := s.connectHost(ctx, host, a, send, trustCh, nil)
 	if he != nil {
 		fail(he.message(), he.unreached)
 		return
@@ -248,15 +225,6 @@ func (s *Server) handleSSH(w http.ResponseWriter, r *http.Request, a *authed) {
 	readyFlag = true
 	ready.Unlock()
 	send(serverMsg{Type: "connected"})
-
-	// Port forwards live as long as this session; a failed rule doesn't end it.
-	for i, f := range forwards {
-		st := &fwdStatus{Index: i, OK: true}
-		if err := s.startForward(ctx, client, f); err != nil {
-			st.OK, st.Message = false, err.Error()
-		}
-		send(serverMsg{Type: "forward", Forward: st})
-	}
 
 	// SSH -> browser.
 	done := make(chan string, 1)
@@ -321,70 +289,28 @@ func (s *Server) handleSSH(w http.ResponseWriter, r *http.Request, a *authed) {
 	}
 }
 
-// chainFor returns the hosts to connect through, jump hosts first and the
-// target last, plus the target's port forwards.
-func (s *Server) chainFor(h *store.Host, a *authed) ([]*store.Host, []store.Forward, error) {
-	jumpIDs, forwards, err := s.db.ChainFor(h.ID)
+// connectHost dials and authenticates to host and returns its client. A nil
+// trust channel means host keys are never prompted for: unknown or changed keys
+// fail the connection. A non-nil override replaces the host's credentials.
+func (s *Server) connectHost(ctx context.Context, host *store.Host, a *authed, send func(serverMsg), trust <-chan bool, override []ssh.AuthMethod) (*ssh.Client, func(), *hopError) {
+	client, err := s.dialHost(ctx, host, a, send, trust, override)
 	if err != nil {
-		return nil, nil, err
+		he := &hopError{hop: host, err: err}
+		var de *dialError
+		if errors.As(err, &de) {
+			he.unreached = true
+		}
+		return nil, nil, he
 	}
-	var hops []*store.Host
-	for _, id := range jumpIDs {
-		j, err := s.db.GetHost(id, a.user.ID)
-		if err != nil {
-			return nil, nil, err
-		}
-		if j.Protocol != "ssh" {
-			return nil, nil, errors.New("jump host is not an SSH host")
-		}
-		hops = append(hops, j)
-	}
-	return append(hops, h), forwards, nil
-}
-
-// connectChain walks a chain of hops, reaching each through the previous one,
-// and returns the client for the last. A nil trust channel means host keys are
-// never prompted for: unknown or changed keys fail the connection. A non-nil
-// override replaces the last hop's credentials.
-func (s *Server) connectChain(ctx context.Context, hops []*store.Host, a *authed, send func(serverMsg), trust <-chan bool, override []ssh.AuthMethod) (*ssh.Client, func(), *hopError) {
-	var closers []func()
-	closeAll := func() {
-		for i := len(closers) - 1; i >= 0; i-- {
-			closers[i]()
-		}
-	}
-	var client *ssh.Client
-	for i, hop := range hops {
-		var o []ssh.AuthMethod
-		if i == len(hops)-1 {
-			o = override
-		}
-		next, err := s.dialHop(ctx, hop, client, a, send, trust, o)
-		if err != nil {
-			closeAll()
-			he := &hopError{hop: hop, jump: i < len(hops)-1, err: err}
-			if i > 0 {
-				he.via = hops[i-1]
-			}
-			var de *dialError
-			if errors.As(err, &de) {
-				he.unreached = true
-			}
-			return nil, nil, he
-		}
-		closers = append(closers, func() { next.Close() })
-		client = next
-	}
-	return client, closeAll, nil
+	return client, func() { client.Close() }, nil
 }
 
 type dialError struct{ err error }
 
 func (e *dialError) Error() string { return e.err.Error() }
 
-// dialHop connects and authenticates to hop, over TCP or through the previous
-// hop's client, and returns the SSH client for it.
-func (s *Server) dialHop(ctx context.Context, hop *store.Host, via *ssh.Client, a *authed, send func(serverMsg), trust <-chan bool, override []ssh.AuthMethod) (*ssh.Client, error) {
+// dialHost connects and authenticates to hop over TCP and returns the SSH client for it.
+func (s *Server) dialHost(ctx context.Context, hop *store.Host, a *authed, send func(serverMsg), trust <-chan bool, override []ssh.AuthMethod) (*ssh.Client, error) {
 	auth, wipe := override, func() {}
 	var err error
 	if auth == nil {
@@ -395,13 +321,8 @@ func (s *Server) dialHop(ctx context.Context, hop *store.Host, via *ssh.Client, 
 	defer wipe()
 
 	addr := net.JoinHostPort(hop.Address, strconv.Itoa(hop.Port))
-	var conn net.Conn
-	if via == nil {
-		d := net.Dialer{Timeout: 15 * time.Second}
-		conn, err = d.DialContext(ctx, "tcp", addr)
-	} else {
-		conn, err = via.Dial("tcp", addr)
-	}
+	d := net.Dialer{Timeout: 15 * time.Second}
+	conn, err := d.DialContext(ctx, "tcp", addr)
 	if err != nil {
 		return nil, &dialError{err}
 	}
@@ -431,57 +352,6 @@ func (s *Server) dialHop(ctx context.Context, hop *store.Host, via *ssh.Client, 
 		return nil, err
 	}
 	return ssh.NewClient(sc, chans, reqs), nil
-}
-
-// startForward opens one port forward. Local forwards listen on the Switchboard
-// server and reach the destination through the SSH server; remote forwards have
-// the SSH server listen on its loopback and reach the destination from here.
-func (s *Server) startForward(ctx context.Context, client *ssh.Client, f store.Forward) error {
-	var ln net.Listener
-	var err error
-	port := strconv.Itoa(f.BindPort)
-	if f.Kind == "local" {
-		if ln, err = net.Listen("tcp", ":"+port); err != nil {
-			return fmt.Errorf("port %d is already in use on the Switchboard server", f.BindPort)
-		}
-	} else if ln, err = client.Listen("tcp", "127.0.0.1:"+port); err != nil {
-		return fmt.Errorf("the SSH server would not listen on port %d", f.BindPort)
-	}
-	context.AfterFunc(ctx, func() { ln.Close() })
-	dest := net.JoinHostPort(f.DestHost, strconv.Itoa(f.DestPort))
-	go func() {
-		for {
-			in, err := ln.Accept()
-			if err != nil {
-				return
-			}
-			go func() {
-				var out net.Conn
-				var err error
-				if f.Kind == "local" {
-					out, err = client.Dial("tcp", dest)
-				} else {
-					d := net.Dialer{Timeout: 10 * time.Second}
-					out, err = d.DialContext(ctx, "tcp", dest)
-				}
-				if err != nil {
-					in.Close()
-					return
-				}
-				pipe(in, out)
-			}()
-		}
-	}()
-	return nil
-}
-
-// pipe copies both ways until either side closes, then closes both.
-func pipe(a, b net.Conn) {
-	var once sync.Once
-	closeBoth := func() { a.Close(); b.Close() }
-	go func() { io.Copy(a, b); once.Do(closeBoth) }()
-	io.Copy(b, a)
-	once.Do(closeBoth)
 }
 
 // sshAuth decrypts the host's credential and returns auth methods plus a

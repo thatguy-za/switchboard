@@ -229,27 +229,3 @@ func TestPushFailures(t *testing.T) {
 		t.Fatalf("failed push recorded as deployed: %v", dep)
 	}
 }
-
-func TestPushThroughJumpHost(t *testing.T) {
-	_, ts, u := newBridgeEnv(t)
-	jump := newTestSSHServer(t, "s3cret", nil)
-	home := t.TempDir()
-	target := newTestSSHServerHome(t, "s3cret", nil, home)
-	_, gen := u.do("POST", "/api/identities/generate", map[string]string{"name": "k", "comment": "c", "kind": "ed25519"})
-
-	jumpID := addHost(t, u, "bastion", jump.port, nil)
-	targetID := addHost(t, u, "private", target.port, map[string]any{"jumps": []string{jumpID}})
-	trustHost(t, ts.URL, u, targetID, 2)
-
-	if r := push(t, u, gen["id"].(string), targetID); r.Result != "added" {
-		t.Fatalf("push through a jump host: %+v", r)
-	}
-	if data, _ := os.ReadFile(filepath.Join(home, ".ssh", "authorized_keys")); !strings.Contains(string(data), "ssh-ed25519") {
-		t.Fatalf("key not installed on the target: %q", data)
-	}
-	// The terminal now reaches the target through the bastion with the key alone.
-	w := dialWS(t, ts.URL, u, targetID)
-	if m := w.next(); m.Type != "connected" {
-		t.Fatalf("got %+v", m)
-	}
-}
