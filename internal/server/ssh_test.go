@@ -662,3 +662,21 @@ func TestPortForwards(t *testing.T) {
 	}
 	w.expectEcho("still-alive")
 }
+
+func TestTerminalSurvivesKeepalivePings(t *testing.T) {
+	old := wsPingEvery
+	wsPingEvery = 40 * time.Millisecond
+	defer func() { wsPingEvery = old }()
+
+	_, ts, u := newBridgeEnv(t)
+	sshd := newTestSSHServer(t, "s3cret", nil)
+	id := addHost(t, u, "box", sshd.port, nil)
+	w := dialWS(t, ts.URL, u, id)
+	w.next()
+	w.send(map[string]any{"type": "trust", "accept": true})
+	if m := w.next(); m.Type != "connected" {
+		t.Fatalf("got %+v", m)
+	}
+	time.Sleep(400 * time.Millisecond) // many pings go by while the terminal is idle
+	w.expectEcho("still here")
+}

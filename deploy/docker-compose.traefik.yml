@@ -1,0 +1,29 @@
+# Traefik in front of Switchboard. Use it on top of the main file:
+#
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.traefik.yml up -d
+#
+# It assumes Traefik already runs on a Docker network called "proxy", with an
+# entry point named "websecure" and a certificate resolver named "letsencrypt".
+# Rename those below to match your setup, and set your own host name.
+#
+# Traefik passes WebSockets, the Host header and X-Forwarded-Proto by default.
+
+services:
+  switchboard:
+    # Only Traefik should reach it, so stop publishing the port to the network.
+    ports: !override
+      - "127.0.0.1:3000:3000"
+    networks:
+      - default
+      - proxy
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: proxy
+      traefik.http.routers.switchboard.rule: Host(`switchboard.example.com`)
+      traefik.http.routers.switchboard.entrypoints: websecure
+      traefik.http.routers.switchboard.tls.certresolver: letsencrypt
+      traefik.http.services.switchboard.loadbalancer.server.port: "3000"
+
+networks:
+  proxy:
+    external: true

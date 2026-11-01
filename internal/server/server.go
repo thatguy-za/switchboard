@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"mime"
 	"net"
 	"net/http"
 	"path/filepath"
@@ -24,6 +25,11 @@ const (
 	lockDuration  = 15 * time.Minute
 	minPassword   = 12
 )
+
+func init() {
+	// Not in Go's built-in table, and the minimal image has no mime.types file.
+	mime.AddExtensionType(".webmanifest", "application/manifest+json")
+}
 
 var usernameRe = regexp.MustCompile(`^[a-zA-Z0-9._-]{2,32}$`)
 

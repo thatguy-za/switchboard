@@ -47,6 +47,10 @@ type serverMsg struct {
 	Forward     *fwdStatus `json:"forward,omitempty"`
 }
 
+// How often a terminal's WebSocket is pinged, so that reverse proxies with an
+// idle timeout don't drop a terminal that has been quiet for a while.
+var wsPingEvery = 25 * time.Second
+
 const (
 	trustTimeout     = 2 * time.Minute
 	handshakeTimeout = 20 * time.Second
@@ -126,6 +130,24 @@ func (s *Server) handleSSH(w http.ResponseWriter, r *http.Request, a *authed) {
 
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
+
+	go func() {
+		t := time.NewTicker(wsPingEvery)
+		defer t.Stop()
+		for {
+			select {
+			case <-t.C:
+				pctx, stop := context.WithTimeout(ctx, 10*time.Second)
+				err := c.Ping(pctx)
+				stop()
+				if err != nil {
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	send := func(m serverMsg) {
 		b, _ := json.Marshal(m)

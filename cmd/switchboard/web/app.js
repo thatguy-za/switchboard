@@ -450,3 +450,7 @@ async function loadUsers() {
 }
 
 refresh().catch(() => { app.textContent = 'Could not reach the server.'; });
+
+// Lets browsers install the app and keeps its files available briefly offline.
+// Browsers only offer this over HTTPS or on localhost.
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});

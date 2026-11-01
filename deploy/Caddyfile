@@ -1,0 +1,9 @@
+# Caddy gets and renews the certificate itself, passes WebSockets through, and
+# sends the Host and X-Forwarded-Proto headers Switchboard needs.
+#
+# Replace the name with yours, and "switchboard" with wherever Switchboard
+# listens (the compose service name if Caddy shares its network, or 127.0.0.1).
+
+switchboard.example.com {
+	reverse_proxy switchboard:3000
+}

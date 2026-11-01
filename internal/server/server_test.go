@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -158,5 +159,39 @@ func TestFlow(t *testing.T) {
 	}
 	if code, _ := newClient(t, ts.URL).do("POST", "/api/login", credentials{"owner", "a long enough password"}); code != 401 {
 		t.Fatalf("old password still works: %d", code)
+	}
+}
+
+func TestPWAFilesAreServedCorrectly(t *testing.T) {
+	dir := t.TempDir()
+	srv, err := New(Config{DataDir: dir, KeysDir: dir + "/keys", SessionTimeout: time.Minute}, fstest.MapFS{
+		"index.html":           {Data: []byte("<!doctype html>")},
+		"manifest.webmanifest": {Data: []byte(`{"name":"x"}`)},
+		"sw.js":                {Data: []byte("self.skipWaiting()")},
+		"icon.svg":             {Data: []byte("<svg xmlns='http://www.w3.org/2000/svg'/>")},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer srv.Close()
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	for path, wantType := range map[string]string{
+		"/manifest.webmanifest": "application/manifest+json",
+		"/sw.js":                "javascript",
+		"/icon.svg":             "image/svg+xml",
+	} {
+		resp, err := http.Get(ts.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != 200 || !strings.Contains(resp.Header.Get("Content-Type"), wantType) {
+			t.Errorf("%s: %d %q, want type %q", path, resp.StatusCode, resp.Header.Get("Content-Type"), wantType)
+		}
+		if !strings.Contains(resp.Header.Get("Content-Security-Policy"), "default-src 'self'") {
+			t.Errorf("%s: missing content security policy", path)
+		}
 	}
 }

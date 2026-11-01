@@ -73,10 +73,36 @@ destination from the Switchboard container.
 
 Each terminal tab can be split right or down into up to six panes, each its own session. Drag the dividers to resize.
 
-When Switchboard sits behind a reverse proxy, pass the original `Host` header and WebSocket upgrades through,
-and set `X-Forwarded-Proto: https` so cookies are marked Secure.
-
 xterm.js 5.5.0, its fit addon and guacamole-common-js 1.5.0 (Apache-2.0, license kept beside it) are vendored in `cmd/switchboard/web/vendor`, so the page loads nothing from a CDN.
+
+## HTTPS and reverse proxies
+
+Switchboard speaks plain HTTP on port 3000. To use it over HTTPS (needed to install it as an app and for
+automatic clipboard sync), put a reverse proxy in front. Sample configs:
+
+| Proxy | File |
+|---|---|
+| Caddy (certificates are automatic) | [`deploy/Caddyfile`](deploy/Caddyfile) |
+| nginx | [`deploy/nginx.conf`](deploy/nginx.conf) |
+| Traefik (Docker labels) | [`deploy/docker-compose.traefik.yml`](deploy/docker-compose.traefik.yml) |
+
+Whatever you use, it has to:
+
+- pass **WebSocket upgrades** through (terminals and desktops are WebSockets);
+- pass the **`Host` header unchanged, including any port**: Switchboard checks it against the page's origin;
+- send **`X-Forwarded-Proto: https`**, so cookies are marked Secure;
+- not cut idle connections quickly. Switchboard pings each terminal every 25 seconds, so any idle timeout above
+  that is fine.
+
+Once a proxy handles TLS, stop publishing port 3000 to the network (the Traefik file shows how to bind it to
+localhost).
+
+## Install as an app
+
+Over HTTPS (or on `localhost`), browsers offer to install Switchboard as an app with its own window and icon.
+A service worker keeps the app's own files available if the server is briefly unreachable; it never stores
+anything from the API. Over plain `http://<ip>:3000` the install option isn't offered, because browsers only allow
+service workers on secure origins. Phones can still add the page to the home screen as a shortcut.
 
 ## Master key
 
