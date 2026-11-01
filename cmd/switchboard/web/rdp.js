@@ -4,7 +4,6 @@
    Depends on workspace.js (el, setState, showOverlay, scheduleReconnect, ...) and vendor/guacamole-common.js. */
 
 const KEYSYM = { ctrl: [0xFFE3, 0xFFE4], meta: [0xFFE7, 0xFFE8, 0xFFEB, 0xFFEC], v: [0x76, 0x56] };
-const IS_MAC = /Mac|iPhone|iPad/.test(navigator.platform);
 const DIR_TYPE = 'application/vnd.glyptodon.guacamole.stream-index+json';
 const WEB_SESSION_ENDED = 4401;
 
@@ -12,31 +11,33 @@ function newRdpSession(host, wtab) {
   const pane = el('div', 'pane rdp');
   pane.innerHTML = `
     <div class="phead"><span class="dot"></span><span class="pname"></span><span class="grow"></span>
-      <button type="button" class="pbtn" data-act="fwd" hidden></button>
-      <button type="button" class="pbtn" data-act="kbd" hidden>Keyboard</button>
-      <button type="button" class="pbtn" data-act="cad" title="Send Ctrl+Alt+Delete to the remote desktop">Ctrl+Alt+Del</button>
-      <button type="button" class="pbtn" data-act="clip">Clipboard</button>
-      <button type="button" class="pbtn" data-act="files">Files</button>
-      <button type="button" class="pbtn" data-act="split-row" title="Open another host beside this one">Split →</button>
-      <button type="button" class="pbtn" data-act="split-col" title="Open another host below this one">Split ↓</button>
-      <button type="button" class="pbtn" data-act="close" aria-label="Close pane">×</button></div>
+      <button type="button" class="quiet fwd" data-act="fwd" hidden></button>
+      <button type="button" class="quiet" data-act="kbd" hidden>${icon('keyboard')}Keyboard</button>
+      <button type="button" class="quiet" data-act="cad" title="Send Ctrl+Alt+Delete to the remote desktop">Ctrl+Alt+Del</button>
+      ${iconButton('clipboard', 'Clipboard', 'data-act="clip"')}
+      ${iconButton('files', 'Files', 'data-act="files"')}
+      ${iconButton('layout-columns', 'Split right', 'data-act="split-row"')}
+      ${iconButton('layout-rows', 'Split down', 'data-act="split-col"')}
+      ${iconButton('x', 'Close pane', 'data-act="close"')}</div>
     <div class="fwdlist" hidden></div>
     <div class="rdpwrap">
       <div class="rdpscreen"></div>
       <textarea class="sink" aria-label="Remote desktop keyboard input" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
       <div class="rpanel clip" hidden>
-        <p class="muted small">Text copied on the remote desktop shows up here. To paste into it, press Ctrl+V as usual, or type here and send.</p>
+        <div class="section-head"><h3>Clipboard</h3>${iconButton('x', 'Close', 'data-clip="close"')}</div>
+        <p class="small muted">Text copied on the remote desktop shows up here. To paste into it, press Ctrl+V as usual, or type here and send.</p>
         <textarea class="cliptext" rows="5" aria-label="Clipboard text"></textarea>
-        <div class="actions"><button type="button" class="primary" data-clip="send">Send to remote</button>
-          <button type="button" data-clip="copy">Copy</button><button type="button" data-clip="close">Close</button></div>
+        <div class="actions"><button type="button" class="primary sm" data-clip="send">Send to remote</button>
+          <button type="button" class="sm" data-clip="copy">${icon('copy')}Copy</button></div>
       </div>
       <div class="rpanel files" hidden>
-        <p class="muted small">Files appear on the remote desktop as the “Switchboard” drive. They last only as long as this session.</p>
+        <div class="section-head"><h3>Files</h3>${iconButton('x', 'Close', 'data-file="close"')}</div>
+        <p class="small muted">Files appear on the remote desktop as the \u201cSwitchboard\u201d drive. They last only as long as this session.</p>
         <input type="file" class="fileinput" multiple aria-label="Choose files to upload">
         <div class="filecrumb small"></div>
         <div class="filelist"></div>
         <p class="small muted filestatus" role="status"></p>
-        <div class="actions"><button type="button" data-file="refresh">Refresh</button><button type="button" data-file="close">Close</button></div>
+        <div class="actions"><button type="button" class="sm" data-file="refresh">${icon('refresh')}Refresh</button></div>
       </div>
     </div>
     <div class="tover" hidden></div>`;
@@ -321,8 +322,8 @@ function bindPanels(sess) {
   clip.addEventListener('click', ev => {
     const b = ev.target.closest('[data-clip]');
     if (!b) return;
-    if (b.dataset.clip === 'send') { rdpSendClipboard(sess, sess.clipArea.value); b.textContent = 'Sent'; setTimeout(() => { b.textContent = 'Send to remote'; }, 1200); }
-    else if (b.dataset.clip === 'copy') { sess.clipArea.select(); copyText(sess.clipArea.value, b); }
+    if (b.dataset.clip === 'send') { rdpSendClipboard(sess, sess.clipArea.value); toast('Sent to the remote clipboard'); }
+    else if (b.dataset.clip === 'copy') { sess.clipArea.select(); copyText(sess.clipArea.value); }
     else togglePanel(sess, clip, sess.filePanel);
   });
   const files = sess.filePanel;
@@ -356,9 +357,9 @@ function listDir(sess, path) {
     reader.onend = () => {
       sess.fsPath = path;
       const entries = Object.entries(reader.getJSON() || {}).sort(([a, ta], [b, tb]) => (tb === DIR_TYPE) - (ta === DIR_TYPE) || a.localeCompare(b));
-      sess.filePanel.querySelector('.filecrumb').innerHTML = `<button type="button" class="link" data-open="${esc(parentPath(path))}" data-type="${DIR_TYPE}">↑</button> <code>${esc(path)}</code>`;
+      sess.filePanel.querySelector('.filecrumb').innerHTML = `${iconButton('arrow-up', 'Up one folder', `data-open="${esc(parentPath(path))}" data-type="${DIR_TYPE}"`)}<code>${esc(path)}</code>`;
       list.innerHTML = entries.length
-        ? entries.map(([full, type]) => `<button type="button" class="fentry" data-open="${esc(full)}" data-type="${esc(type)}">${esc(full.split('/').pop())}${type === DIR_TYPE ? '/' : ''}</button>`).join('')
+        ? entries.map(([full, type]) => `<button type="button" class="fentry" data-open="${esc(full)}" data-type="${esc(type)}">${icon(type === DIR_TYPE ? 'folder' : 'files', 'sm')}${esc(full.split('/').pop())}</button>`).join('')
         : '<p class="muted small">Empty. Upload a file to see it on the remote desktop.</p>';
     };
     stream.sendAck('Ready', Guacamole.Status.Code.SUCCESS); // guacd sends nothing until the first ack

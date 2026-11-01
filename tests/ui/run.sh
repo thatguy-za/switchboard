@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Builds Switchboard, starts it next to a throwaway SSH server, and walks through every screen
+# in headless Chromium (dark, light and phone size). Screenshots land in tests/ui/out.
+# Needs Docker. Exits non-zero if a step fails or the page logs an error.
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+
+NET=sbui-test
+PLAYWRIGHT=mcr.microsoft.com/playwright:v1.64.1-noble
+cleanup() { docker rm -f sbui-test-app sbui-test-ssh >/dev/null 2>&1 || true; docker network rm "$NET" >/dev/null 2>&1 || true; }
+trap cleanup EXIT
+cleanup
+
+docker build -q -t switchboard:ui-test .
+docker network create "$NET" >/dev/null
+docker run -d --name sbui-test-ssh --network "$NET" -e PUID=1000 -e PGID=1000 -e USER_NAME=tester \
+  -e USER_PASSWORD=testpass-123 -e PASSWORD_ACCESS=true lscr.io/linuxserver/openssh-server:latest >/dev/null
+docker run -d --name sbui-test-app --network "$NET" --network-alias switchboard switchboard:ui-test >/dev/null
+sleep 8
+
+mkdir -p tests/ui/out && rm -f tests/ui/out/*.png
+docker run --rm --network "$NET" -e OUT=/work/out -v "$PWD/tests/ui":/work "$PLAYWRIGHT" \
+  sh -c 'cd /tmp && npm i playwright@1.64.1 --silent >/dev/null 2>&1; cp /work/walkthrough.js /tmp/ && node /tmp/walkthrough.js'
