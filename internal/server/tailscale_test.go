@@ -84,6 +84,15 @@ func TestTailscaleSettings(t *testing.T) {
 		t.Fatalf("rejected requests started the node: %+v", fake.started)
 	}
 
+	// Signing in instead of pasting a key joins without one.
+	if code, out := u.do("POST", "/api/admin/tailscale", map[string]any{"enabled": true, "hostname": "switchboard", "sign_in": true}); code != 200 {
+		t.Fatalf("sign in: %d %v", code, out)
+	}
+	if len(fake.started) != 1 || !fake.started[0].SignIn || fake.started[0].AuthKey != "" {
+		t.Fatalf("sign-in options: %+v", fake.started)
+	}
+	fake.started, fake.hasState = nil, false
+
 	if code, out := u.do("POST", "/api/admin/tailscale", map[string]any{"enabled": true, "hostname": "Sb-Home", "serve_ui": false, "auth_key": " tskey-auth-abc "}); code != 200 || out["enabled"] != true || out["hostname"] != "sb-home" {
 		t.Fatalf("enable: %d %v", code, out)
 	}

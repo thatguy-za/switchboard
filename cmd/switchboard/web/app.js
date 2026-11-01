@@ -294,19 +294,22 @@ async function renderTailscale(host) {
   if (!host.isConnected || settingsTab !== 'server') return;
   const up = t.state === 'connected';
   const status = {
-    off: tag('Off'), needs_key: tag('Needs a key', 'warn'), starting: tag('Connecting…'),
+    off: tag('Off'), needs_key: tag('Needs a key', 'warn'), starting: t.login_url ? tag('Waiting for sign-in', 'warn') : tag('Connecting…'),
     connected: tag('Connected', 'acc'), error: tag('Problem', 'warn'),
   }[t.state] || '';
   const where = up ? `${t.name ? `<code>${esc(t.name)}</code> · ` : ''}${esc((t.ips || []).join(', '))}` : '';
   const url = up && t.serve_ui ? `<div>Web UI: <code>http://${esc(t.hostname)}:${t.port}</code> from any device on your tailnet</div>` : '';
   const problem = t.error ? `<div class="err">${esc(t.error)}</div>` : '';
+  const approve = t.state === 'starting' && t.login_url ? '<div>Open the sign-in page and approve this device to finish joining.</div>' : '';
   const configure = () => tailscaleDialog(t, () => renderTailscale(host));
   host.innerHTML = panel(
-    settingRow(`Tailscale ${status}`, `Reach SSH and RDP hosts by their tailnet address or name, and optionally open Switchboard from your tailnet.${where ? `<div>${where}</div>` : ''}${url}${problem}`,
-      `${button('Configure', { icon: 'settings', attrs: 'id="tsedit"' })}${switchControl({ id: 'tson', checked: t.enabled, label: 'Use Tailscale' })}`) +
+    settingRow(`Tailscale ${status}`, `Reach SSH and RDP hosts by their tailnet address or name, and optionally open Switchboard from your tailnet.${where ? `<div>${where}</div>` : ''}${url}${approve}${problem}`,
+      `${approve ? button('Open sign-in page', { kind: 'primary', icon: 'login', attrs: 'id="tslogin"' }) : ''}${button('Configure', { icon: 'settings', attrs: 'id="tsedit"' })}${switchControl({ id: 'tson', checked: t.enabled, label: 'Use Tailscale' })}`) +
     (t.has_state ? settingRow('Remove from tailnet', 'Log this device out of Tailscale and forget it. You will need a new auth key to join again.',
       button('Remove', { kind: 'danger', attrs: 'id="tsrm"' })) : ''));
   $('#tsedit', host).addEventListener('click', configure);
+  const login = $('#tslogin', host);
+  if (login) login.addEventListener('click', () => window.open(t.login_url, '_blank', 'noopener'));
   $('#tson', host).addEventListener('change', async ev => {
     if (ev.target.checked && !t.has_state) { ev.target.checked = false; configure(); return; }
     try {
@@ -324,18 +327,36 @@ async function renderTailscale(host) {
 }
 
 function tailscaleDialog(t, done) {
-  dialog(t.enabled ? 'Tailscale settings' : 'Connect to Tailscale', `
+  const d = dialog(t.enabled ? 'Tailscale settings' : 'Connect to Tailscale', `
     <label>Device name<input type="text" name="hostname" value="${esc(t.hostname)}" maxlength="63" pattern="[a-z0-9]([a-z0-9\\-]*[a-z0-9])?" autocapitalize="off" required></label>
-    <label>Auth key<input type="password" name="auth_key" autocomplete="off" ${t.has_state ? '' : 'required'}
-      placeholder="${t.has_state ? 'Only needed to join again' : 'tskey-auth-…'}"></label>
+    <label>Auth key<input type="password" name="auth_key" autocomplete="off"
+      placeholder="${t.has_state ? 'Only needed to join again' : 'Paste a key, or sign in instead'}"></label>
     ${checkField('serve_ui', 'Open the web UI on the tailnet', `Serves this page on port ${t.port} of the device name above. Anyone on your tailnet who can reach it can sign in.`, '', t.serve_ui)}`, {
-    description: 'Create an auth key in the Tailscale admin console under Settings → Keys. It is used once to join and is not stored.',
+    description: 'Sign in with Tailscale to approve this device in your browser, or paste an auth key from the admin console (Settings → Keys). A key is used once to join and is not stored.',
     submitLabel: t.enabled ? 'Save' : 'Connect',
+    extra: t.has_state ? '' : button('Sign in with Tailscale', { icon: 'login', attrs: 'type="button" id="tssignin"' }),
     onSubmit: async fd => {
+      if (!t.has_state && !fd.get('auth_key')) throw new Error('Paste an auth key, or use Sign in with Tailscale.');
       await api('POST', '/admin/tailscale', { enabled: true, hostname: fd.get('hostname'), serve_ui: fd.get('serve_ui') !== null, auth_key: fd.get('auth_key') });
       toast('Tailscale is connecting');
       done();
     },
+  });
+  const signIn = d.querySelector('#tssignin');
+  if (signIn) signIn.addEventListener('click', async () => {
+    const f = d.querySelector('form');
+    if (!f.reportValidity()) return;
+    const fd = new FormData(f);
+    signIn.disabled = true;
+    try {
+      await api('POST', '/admin/tailscale', { enabled: true, hostname: fd.get('hostname'), serve_ui: fd.get('serve_ui') !== null, sign_in: true });
+      d.close();
+      toast('Waiting for you to approve this device');
+      done();
+    } catch (e) {
+      d.querySelector('.err').textContent = e.message;
+      signIn.disabled = false;
+    }
   });
 }
 
@@ -360,9 +381,9 @@ function buildShell() {
   app.innerHTML = `
     <div class="shell" id="shell">
       <aside class="side" id="side">
-        <div class="side-head"><div class="wordmark">${icon('logo')}Switchboard</div>
-          ${iconButton('plus', 'New host', 'id="add-host"')}${iconButton('folder-plus', 'New folder', 'id="add-folder"')}</div>
+        <div class="side-head"><div class="wordmark">${icon('logo')}Switchboard</div></div>
         <button class="find" id="find">${icon('search')}<span class="grow">Search or connect</span><span class="kbd">${IS_MAC ? '⌘K' : 'Ctrl K'}</span></button>
+        <div class="side-actions">${button('Host', { kind: 'sm', icon: 'plus', attrs: 'id="add-host"' })}${button('Folder', { kind: 'sm', icon: 'folder-plus', attrs: 'id="add-folder"' })}</div>
         <div class="tree" id="tree"></div>
         <div class="side-foot">
           <button class="nav" data-view="identities">${icon('key')}Identities</button>

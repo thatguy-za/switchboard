@@ -15,9 +15,11 @@
 .side-head { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-7) var(--s-6) var(--s-2) var(--s-8); }
 .side-head .wordmark { flex: 1; font-size: var(--fs-md); }
 .side-head .wordmark .ic { width: var(--icon-lg); height: var(--icon-lg); }
-.find { display: flex; align-items: center; gap: var(--s-4); height: var(--h-field); margin: var(--s-5) var(--s-6) var(--s-6); padding: 0 var(--s-6); background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text-3); width: auto; justify-content: flex-start; font-weight: var(--fw-regular); }
+.find { display: flex; align-items: center; gap: var(--s-4); height: var(--h-field); margin: var(--s-5) var(--s-6) var(--s-4); padding: 0 var(--s-6); background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text-3); width: auto; justify-content: flex-start; font-weight: var(--fw-regular); }
 .find:hover { border-color: var(--line-strong); background: var(--surface-raised); }
 .find .grow { text-align: left; }
+.side-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); margin: 0 var(--s-6) var(--s-6); }
+.side-actions button { justify-content: center; color: var(--text-2); }
 .tree { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--s-4) var(--s-4); }
 .side-foot { padding: var(--s-4); border-top: 1px solid var(--line); display: grid; gap: 1px; }
 .me { display: flex; align-items: center; gap: var(--s-5); padding: var(--s-4) var(--s-3) var(--s-1) var(--s-5); color: var(--text-2); }

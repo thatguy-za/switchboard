@@ -187,6 +187,31 @@ function renderWelcome() {
 
 /* ---------- host and folder dialogs ---------- */
 
+const RDP_DEFAULTS = { width: 0, height: 0, depth: 32, layout: 'en-us-qwerty', wallpaper: false, smoothing: true, audio: true, clipboard: true, files: true };
+const RDP_SIZES = ['1920x1080', '1600x900', '1366x768', '1280x720', '1024x768'];
+const RDP_DEPTHS = [[32, 'True colour (32 bit)'], [24, 'True colour (24 bit)'], [16, 'High colour (16 bit, lighter on slow links)']];
+const RDP_LAYOUTS = [['en-us-qwerty', 'English (US)'], ['en-gb-qwerty', 'English (UK)'], ['de-de-qwertz', 'German'], ['de-ch-qwertz', 'German (Swiss)'],
+  ['fr-fr-azerty', 'French'], ['fr-be-azerty', 'French (Belgian)'], ['fr-ca-qwerty', 'French (Canadian)'], ['fr-ch-qwertz', 'French (Swiss)'],
+  ['es-es-qwerty', 'Spanish'], ['es-latam-qwerty', 'Spanish (Latin America)'], ['it-it-qwerty', 'Italian'], ['pt-br-qwerty', 'Portuguese (Brazil)'],
+  ['pt-pt-qwerty', 'Portuguese'], ['sv-se-qwerty', 'Swedish'], ['da-dk-qwerty', 'Danish'], ['no-no-qwerty', 'Norwegian'], ['pl-pl-qwerty', 'Polish'],
+  ['tr-tr-qwerty', 'Turkish'], ['hu-hu-qwertz', 'Hungarian'], ['ja-jp-qwerty', 'Japanese']];
+
+// The display and device settings from a submitted host dialog.
+function rdpFromForm(fd) {
+  const res = fd.get('res');
+  let width = 0, height = 0;
+  if (res === 'custom') {
+    width = Number(fd.get('rw')); height = Number(fd.get('rh'));
+    if (!width || !height) throw new Error('Enter a width and height for the custom size.');
+    if (width < 320 || width > 7680 || height < 200 || height > 4320) throw new Error('The size must be between 320 × 200 and 7680 × 4320.');
+  } else if (res !== 'fit') {
+    [width, height] = res.split('x').map(Number);
+  }
+  const on = name => fd.get(name) !== null;
+  return { width, height, depth: Number(fd.get('depth')), layout: fd.get('layout'),
+    wallpaper: on('wallpaper'), smoothing: on('smoothing'), audio: on('audio'), clipboard: on('clipboard'), files: on('files') };
+}
+
 // opts.prefill fills a new host's fields; opts.thenOpen opens it once saved.
 function hostDialog(host, opts = {}) {
   const defaults = { name: '', folder_id: '', address: '', port: 22, username: '', auth: 'password', identity_id: '', has_password: false, theme: 'auto', protocol: 'ssh', security: 'any', ignore_cert: true };
@@ -194,6 +219,12 @@ function hostDialog(host, opts = {}) {
   const idOpts = WS.identities.length
     ? WS.identities.map(i => `<option value="${esc(i.id)}"${i.id === h.identity_id ? ' selected' : ''}>${esc(i.name)}</option>`).join('')
     : '<option value="">No identities yet</option>';
+  const rdpOpts = { ...RDP_DEFAULTS, ...(h.rdp || {}) };
+  const sizeKey = !rdpOpts.width ? 'fit' : RDP_SIZES.includes(`${rdpOpts.width}x${rdpOpts.height}`) ? `${rdpOpts.width}x${rdpOpts.height}` : 'custom';
+  const sizeOpts = [['fit', 'Fit the window'], ...RDP_SIZES.map(v => [v, v.replace('x', ' × ')]), ['custom', 'Custom size…']]
+    .map(([v, t]) => `<option value="${v}"${v === sizeKey ? ' selected' : ''}>${t}</option>`).join('');
+  const depthOpts = RDP_DEPTHS.map(([v, t]) => `<option value="${v}"${v === rdpOpts.depth ? ' selected' : ''}>${t}</option>`).join('');
+  const layoutOpts = RDP_LAYOUTS.map(([v, t]) => `<option value="${v}"${v === rdpOpts.layout ? ' selected' : ''}>${t}</option>`).join('');
   const themeOpts = ['auto', 'dark', 'light', 'contrast']
     .map(t => `<option value="${t}"${t === h.theme ? ' selected' : ''}>${t[0].toUpperCase() + t.slice(1)}</option>`).join('');
   const d = dialog(host ? 'Edit host' : 'New host', `
@@ -218,6 +249,19 @@ function hostDialog(host, opts = {}) {
     <label class="check" data-proto="rdp"><input type="checkbox" name="ignore_cert"${h.ignore_cert ? ' checked' : ''}> Accept self-signed certificates
       <span class="small">Windows PCs usually have one. Turn this off on networks you don't trust.</span></label>
     ${h.has_password ? '<label class="check"><input type="checkbox" name="forget"> Forget the saved password</label>' : ''}
+    <details data-proto="rdp"><summary>Display and devices</summary>
+      <label>Resolution<select name="res">${sizeOpts}</select></label>
+      <div class="inline" id="rescustom"${sizeKey === 'custom' ? '' : ' hidden'}>
+        <label>Width<input type="number" name="rw" min="320" max="7680" value="${rdpOpts.width || ''}"></label>
+        <label>Height<input type="number" name="rh" min="200" max="4320" value="${rdpOpts.height || ''}"></label></div>
+      <label>Colour depth<select name="depth">${depthOpts}</select></label>
+      <label>Keyboard layout<select name="layout">${layoutOpts}</select></label>
+      ${checkField('wallpaper', 'Show the desktop wallpaper', 'Off is faster on slow links.', '', rdpOpts.wallpaper)}
+      ${checkField('smoothing', 'Smooth fonts', '', '', rdpOpts.smoothing)}
+      ${checkField('audio', 'Play sound', '', '', rdpOpts.audio)}
+      ${checkField('clipboard', 'Share the clipboard', 'Copy and paste between this browser and the desktop.', '', rdpOpts.clipboard)}
+      ${checkField('files', 'Allow file transfer', 'Upload to and download from the desktop.', '', rdpOpts.files)}
+    </details>
     <label data-sshonly>Terminal colours<select name="theme">${themeOpts}</select></label>`, {
     wide: true,
     extra: host ? '<button type="button" class="danger" data-del>Delete</button>' : '',
@@ -229,6 +273,7 @@ function hostDialog(host, opts = {}) {
         auth: rdp ? 'password' : fd.get('auth'),
         identity_id: !rdp && fd.get('auth') === 'key' ? fd.get('identity_id') : '', theme: rdp ? 'auto' : fd.get('theme'),
         security: fd.get('security'), ignore_cert: fd.get('ignore_cert') !== null,
+        rdp: rdp ? rdpFromForm(fd) : undefined,
       };
       if (rdp && !host && !fd.get('password')) throw new Error('Enter the password for this host.');
       if (body.auth === 'key' && !body.identity_id) throw new Error('Choose an identity, or create one on the Identities page.');
@@ -248,6 +293,7 @@ function hostDialog(host, opts = {}) {
     d.querySelectorAll('[data-sshonly]').forEach(e => { e.hidden = proto === 'rdp'; });
     d.querySelectorAll('[data-for]').forEach(l => { l.hidden = proto === 'rdp' ? l.dataset.for !== 'password' : l.dataset.for !== auth; });
   };
+  d.querySelector('[name=res]').addEventListener('change', ev => { d.querySelector('#rescustom').hidden = ev.target.value !== 'custom'; });
   const portField = d.querySelector('[name=port]');
   d.querySelector('[name=protocol]').addEventListener('change', ev => {
     // Swap the default port only if it still holds the other protocol's default.

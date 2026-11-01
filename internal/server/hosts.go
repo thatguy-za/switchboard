@@ -20,25 +20,30 @@ type folderView struct {
 }
 
 type hostView struct {
-	ID          string `json:"id"`
-	FolderID    string `json:"folder_id"`
-	Name        string `json:"name"`
-	Address     string `json:"address"`
-	Port        int    `json:"port"`
-	Username    string `json:"username"`
-	Auth        string `json:"auth"`
-	IdentityID  string `json:"identity_id"`
-	HasPassword bool   `json:"has_password"`
-	Protocol    string `json:"protocol"`
-	Theme       string `json:"theme"`
-	Security    string `json:"security"`
-	IgnoreCert  bool   `json:"ignore_cert"`
+	ID          string      `json:"id"`
+	FolderID    string      `json:"folder_id"`
+	Name        string      `json:"name"`
+	Address     string      `json:"address"`
+	Port        int         `json:"port"`
+	Username    string      `json:"username"`
+	Auth        string      `json:"auth"`
+	IdentityID  string      `json:"identity_id"`
+	HasPassword bool        `json:"has_password"`
+	Protocol    string      `json:"protocol"`
+	Theme       string      `json:"theme"`
+	Security    string      `json:"security"`
+	IgnoreCert  bool        `json:"ignore_cert"`
+	RDP         *rdpOptions `json:"rdp,omitempty"`
 }
 
 func toHostView(h *store.Host) hostView {
 	v := hostView{ID: h.ID, FolderID: h.FolderID, Name: h.Name, Address: h.Address, Port: h.Port,
 		Username: h.Username, Auth: h.Auth, IdentityID: h.IdentityID, HasPassword: h.PasswordBlob != nil,
 		Protocol: h.Protocol, Theme: h.Theme, Security: h.RDPSecurity, IgnoreCert: h.RDPIgnoreCert}
+	if h.Protocol == "rdp" {
+		o := parseRDPOptions(h.RDPOptions)
+		v.RDP = &o
+	}
 	return v
 }
 
@@ -145,18 +150,19 @@ func (s *Server) handleDeleteFolder(w http.ResponseWriter, r *http.Request, a *a
 /* hosts */
 
 type hostInput struct {
-	Name       string  `json:"name"`
-	FolderID   string  `json:"folder_id"`
-	Address    string  `json:"address"`
-	Port       int     `json:"port"`
-	Username   string  `json:"username"`
-	Auth       string  `json:"auth"`
-	IdentityID string  `json:"identity_id"`
-	Password   *string `json:"password"` // nil keeps the stored password, "" clears it
-	Theme      string  `json:"theme"`
-	Protocol   string  `json:"protocol"`
-	Security   string  `json:"security"`
-	IgnoreCert *bool   `json:"ignore_cert"`
+	Name       string      `json:"name"`
+	FolderID   string      `json:"folder_id"`
+	Address    string      `json:"address"`
+	Port       int         `json:"port"`
+	Username   string      `json:"username"`
+	Auth       string      `json:"auth"`
+	IdentityID string      `json:"identity_id"`
+	Password   *string     `json:"password"` // nil keeps the stored password, "" clears it
+	Theme      string      `json:"theme"`
+	Protocol   string      `json:"protocol"`
+	Security   string      `json:"security"`
+	IgnoreCert *bool       `json:"ignore_cert"`
+	RDP        *rdpOptions `json:"rdp"` // nil keeps the saved settings
 }
 
 // applyHostInput validates in and copies it onto h, sealing any new password
@@ -189,6 +195,7 @@ func (s *Server) applyHostInput(h *store.Host, in *hostInput, a *authed) string 
 		len(in.Username) > 128, in.Port < 1 || in.Port > 65535, !themes[in.Theme],
 		in.Protocol != "ssh" && in.Protocol != "rdp",
 		in.Protocol == "rdp" && !rdpSecurity[in.Security],
+		in.Protocol == "rdp" && in.RDP != nil && !validRDPOptions(in.RDP),
 		in.Auth != "password" && in.Auth != "key":
 		return "bad_request"
 	}
@@ -207,6 +214,9 @@ func (s *Server) applyHostInput(h *store.Host, in *hostInput, a *authed) string 
 	h.Protocol = in.Protocol
 	if in.Protocol == "rdp" {
 		h.RDPSecurity = in.Security
+		if in.RDP != nil {
+			h.RDPOptions = in.RDP.encode()
+		}
 		if in.IgnoreCert != nil {
 			h.RDPIgnoreCert = *in.IgnoreCert
 		} else if h.RDPSecurity == "" || h.CreatedAt == 0 {

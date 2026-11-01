@@ -51,6 +51,9 @@ function newRdpSession(host, wtab) {
   sess.ro = new ResizeObserver(() => requestAnimationFrame(() => fitSess(sess)));
   sess.ro.observe(sess.holder);
   if (matchMedia('(pointer: coarse)').matches) pane.querySelector('[data-act=kbd]').hidden = false;
+  // A host can turn the clipboard and file transfer off; the server enforces it too.
+  if (!rdpAllows(sess, 'clipboard')) pane.querySelector('[data-act=clip]').hidden = true;
+  if (!rdpAllows(sess, 'files')) pane.querySelector('[data-act=files]').hidden = true;
 
   pane.addEventListener('pointerdown', () => { focusSession(sess); rdpResumeAudio(); }, true);
   pane.addEventListener('click', ev => {
@@ -93,6 +96,8 @@ function rdpKeys(sess, keysyms) {
 /* ---------- opening and connecting ---------- */
 
 // Called once the pane is in the page. Keyboard and mouse handlers act on whatever client is current.
+const rdpAllows = (sess, what) => !sess.host.rdp || sess.host.rdp[what] !== false;
+
 function rdpOpen(sess) {
   if (sess.opened) return;
   sess.opened = true;
@@ -148,7 +153,7 @@ function rdpOpen(sess) {
   sess.holder.addEventListener('dragover', ev => { ev.preventDefault(); });
   sess.holder.addEventListener('drop', ev => {
     ev.preventDefault();
-    if (ev.dataTransfer && ev.dataTransfer.files.length) { sess.filePanel.hidden = false; sess.clipPanel.hidden = true; uploadFiles(sess, [...ev.dataTransfer.files]); }
+    if (rdpAllows(sess, 'files') && ev.dataTransfer && ev.dataTransfer.files.length) { sess.filePanel.hidden = false; sess.clipPanel.hidden = true; uploadFiles(sess, [...ev.dataTransfer.files]); }
   });
 }
 
@@ -218,7 +223,8 @@ function rdpConnect(sess) {
 
   // Start at the pane's size so the desktop fits without a resize.
   const w = sess.holder.clientWidth, h = sess.holder.clientHeight;
-  const W = w >= 320 ? w - (w % 4) : 1280, H = h >= 200 ? h : 720;
+  const fixed = rdpFixedSize(sess);
+  const W = fixed ? fixed.width : w >= 320 ? w - (w % 4) : 1280, H = fixed ? fixed.height : h >= 200 ? h : 720;
   sess.sentW = W;
   sess.sentH = H;
   client.connect(`width=${W}&height=${H}&dpi=96`);
@@ -265,12 +271,18 @@ function rdpFocus(sess) { if (sess.opened && !sess.closed) sess.sink.focus({ pre
 
 /* ---------- size and scale ---------- */
 
+// The host's fixed resolution, or null when the desktop follows the window.
+function rdpFixedSize(sess) {
+  const o = sess.host.rdp;
+  return o && o.width > 0 && o.height > 0 ? o : null;
+}
+
 function rdpFit(sess) {
   if (!sess.opened || sess.closed) return;
   const w = sess.holder.clientWidth, h = sess.holder.clientHeight;
   if (!w || !h || sess.holder.offsetParent === null) return;
   rdpScale(sess);
-  if (!sess.client || sess.state !== 'live') return;
+  if (!sess.client || sess.state !== 'live' || rdpFixedSize(sess)) return;
   const W = Math.max(320, w - (w % 4)), H = Math.max(200, h);
   if (W === sess.sentW && H === sess.sentH) return;
   // Resize the remote desktop to the pane once the pane stops changing.

@@ -25,15 +25,18 @@ const (
 	StateUp       = "connected"
 	StateError    = "error"
 
-	upTimeout = 2 * time.Minute
+	upTimeout     = 2 * time.Minute
+	signInTimeout = 10 * time.Minute
 )
 
 // Status is what the settings page shows.
 type Status struct {
-	State string   `json:"state"`
-	Error string   `json:"error,omitempty"`
-	Name  string   `json:"name,omitempty"` // the node's MagicDNS name
-	IPs   []string `json:"ips,omitempty"`
+	State string `json:"state"`
+	Error string `json:"error,omitempty"`
+	Name  string `json:"name,omitempty"` // the node's MagicDNS name
+	// LoginURL is where to approve this device when it joined without a key.
+	LoginURL string   `json:"login_url,omitempty"`
+	IPs      []string `json:"ips,omitempty"`
 }
 
 // Options configure a node. AuthKey is only needed for the first join: after
@@ -41,9 +44,11 @@ type Status struct {
 type Options struct {
 	Hostname string
 	AuthKey  string
-	ServeUI  bool
-	Port     int
-	Handler  http.Handler
+	// SignIn joins without a key: Tailscale gives a link to approve the device.
+	SignIn  bool
+	ServeUI bool
+	Port    int
+	Handler http.Handler
 }
 
 // Manager owns at most one running node.
@@ -103,7 +108,7 @@ func (m *Manager) Connected() bool { return m.Status().State == StateUp }
 // Start (re)starts the node. It returns at once; Status shows the progress.
 func (m *Manager) Start(o Options) {
 	m.Stop()
-	if !m.HasState() && o.AuthKey == "" {
+	if !m.HasState() && o.AuthKey == "" && !o.SignIn {
 		m.set(Status{State: StateNeedsKey})
 		return
 	}
@@ -115,12 +120,17 @@ func (m *Manager) Start(o Options) {
 		Dir: m.dir, Hostname: o.Hostname, AuthKey: o.AuthKey,
 		Logf: func(string, ...any) {}, UserLogf: func(string, ...any) {},
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), upTimeout)
+	timeout := upTimeout
+	if o.SignIn && !m.HasState() {
+		timeout = signInTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	m.mu.Lock()
 	m.srv, m.cancel = srv, cancel
 	m.st = Status{State: StateStarting}
 	m.mu.Unlock()
 
+	go m.watchLogin(ctx, srv)
 	go func() {
 		defer cancel()
 		st, err := srv.Up(ctx)
@@ -144,6 +154,35 @@ func (m *Manager) Start(o Options) {
 			m.serveLocked(srv, o)
 		}
 	}()
+}
+
+// watchLogin copies the login link into the status while the node waits to be
+// approved, so the settings page can show it.
+func (m *Manager) watchLogin(ctx context.Context, srv *tsnet.Server) {
+	lc, err := srv.LocalClient()
+	if err != nil {
+		return
+	}
+	for {
+		if st, err := lc.StatusWithoutPeers(ctx); err == nil && st.AuthURL != "" {
+			m.mu.Lock()
+			if m.srv == srv && m.st.State == StateStarting {
+				m.st.LoginURL = st.AuthURL
+			}
+			m.mu.Unlock()
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Second):
+		}
+		m.mu.Lock()
+		done := m.srv != srv || m.st.State != StateStarting
+		m.mu.Unlock()
+		if done {
+			return
+		}
+	}
 }
 
 // serveLocked serves the web UI on the node's tailnet addresses.
@@ -212,7 +251,7 @@ func (m *Manager) set(st Status) {
 
 func upError(err error) string {
 	if errors.Is(err, context.DeadlineExceeded) {
-		return "Could not join the tailnet. Check that the auth key is valid and unused, and that this machine can reach Tailscale."
+		return "Could not join the tailnet. Check that the auth key is valid and unused (or that you approved the sign-in), and that this machine can reach Tailscale."
 	}
 	return "Could not join the tailnet: " + err.Error()
 }

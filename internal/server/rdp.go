@@ -112,8 +112,12 @@ func (s *Server) handleRDP(w http.ResponseWriter, r *http.Request, a *authed) {
 		apiErr(w, http.StatusBadRequest, "wrong_protocol")
 		return
 	}
+	opts := parseRDPOptions(host.RDPOptions)
 	width := queryInt(r, "width", 1280, minDisplayW, maxDisplayW)
 	height := queryInt(r, "height", 720, minDisplayH, maxDisplayH)
+	if opts.fixedSize() {
+		width, height = opts.Width, opts.Height
+	}
 	dpi := queryInt(r, "dpi", 96, 48, 384)
 
 	c, err := websocket.Accept(w, r, &websocket.AcceptOptions{Subprotocols: []string{"guacamole"}})
@@ -139,7 +143,7 @@ func (s *Server) handleRDP(w http.ResponseWriter, r *http.Request, a *authed) {
 	}
 	defer s.rdpRelease()
 
-	params, cleanup := s.rdpParams(host, a)
+	params, cleanup := s.rdpParams(host, opts, a)
 	defer cleanup()
 	if rh, rp, stopRelay := s.tailnetRelay(ctx, host); rh != "" {
 		params["hostname"], params["port"] = rh, rp
@@ -182,6 +186,7 @@ func (s *Server) handleRDP(w http.ResponseWriter, r *http.Request, a *authed) {
 		}
 	}()
 	// browser -> guacd, filtered.
+	policy := clientPolicy{size: !opts.fixedSize(), clipboard: opts.Clipboard, files: opts.Files}
 	go func() {
 		defer cancel()
 		for {
@@ -192,7 +197,7 @@ func (s *Server) handleRDP(w http.ResponseWriter, r *http.Request, a *authed) {
 			if typ != websocket.MessageText {
 				continue
 			}
-			out, echo, active, err := filterClientFrame(data)
+			out, echo, active, err := filterClientFrame(data, policy)
 			if err != nil {
 				c.Close(websocket.StatusPolicyViolation, "bad frame")
 				return
@@ -221,10 +226,13 @@ func (s *Server) handleRDP(w http.ResponseWriter, r *http.Request, a *authed) {
 	<-ctx.Done()
 }
 
+// clientPolicy is what a host's settings let the browser do.
+type clientPolicy struct{ size, clipboard, files bool }
+
 // filterClientFrame keeps only the instructions a browser may send, and says
 // whether any of them show real use. The browser's tunnel library also sends
 // its own "ping" frames and expects them echoed back; those come back in echo.
-func filterClientFrame(data []byte) (out, echo []byte, active bool, err error) {
+func filterClientFrame(data []byte, policy clientPolicy) (out, echo []byte, active bool, err error) {
 	for len(data) > 0 {
 		ins, n, perr := guac.Parse(data)
 		if perr != nil {
@@ -241,7 +249,10 @@ func filterClientFrame(data []byte) (out, echo []byte, active bool, err error) {
 		if !clientOpcodes[ins.Opcode] {
 			continue
 		}
-		if ins.Opcode == "size" && !validSize(ins.Args) {
+		if ins.Opcode == "size" && (!policy.size || !validSize(ins.Args)) {
+			continue
+		}
+		if ins.Opcode == "clipboard" && !policy.clipboard || (ins.Opcode == "get" || ins.Opcode == "put") && !policy.files {
 			continue
 		}
 		out = append(out, raw...)
@@ -261,7 +272,7 @@ func validSize(args []string) bool {
 
 // rdpParams builds the guacd connection settings, including the decrypted
 // password. The returned function removes the session's drive folder.
-func (s *Server) rdpParams(h *store.Host, a *authed) (map[string]string, func()) {
+func (s *Server) rdpParams(h *store.Host, o rdpOptions, a *authed) (map[string]string, func()) {
 	user, domain := h.Username, ""
 	if i := strings.Index(user, `\`); i > 0 {
 		domain, user = user[:i], user[i+1:]
@@ -272,10 +283,15 @@ func (s *Server) rdpParams(h *store.Host, a *authed) (map[string]string, func())
 		"security":      h.RDPSecurity,
 		"ignore-cert":   strconv.FormatBool(h.RDPIgnoreCert),
 		"resize-method": "display-update",
-		"color-depth":   "32", "enable-wallpaper": "false", "enable-font-smoothing": "true",
-		"disable-audio": "false", "enable-audio-input": "false",
-		"client-name": "Switchboard", "server-layout": "en-us-qwerty",
+		"color-depth":   strconv.Itoa(o.Depth), "enable-wallpaper": strconv.FormatBool(o.Wallpaper),
+		"enable-font-smoothing": strconv.FormatBool(o.Smoothing),
+		"disable-audio":         strconv.FormatBool(!o.Audio), "enable-audio-input": "false",
+		"client-name": "Switchboard", "server-layout": o.Layout,
 		"enable-drive": "false",
+		"disable-copy": strconv.FormatBool(!o.Clipboard), "disable-paste": strconv.FormatBool(!o.Clipboard),
+	}
+	if o.fixedSize() {
+		p["resize-method"] = ""
 	}
 	if h.PasswordBlob != nil {
 		if pw, err := crypto.OpenSecret(s.master, a.sess.vk, h.ID, h.PasswordBlob); err == nil {
@@ -284,7 +300,7 @@ func (s *Server) rdpParams(h *store.Host, a *authed) (map[string]string, func())
 		}
 	}
 	cleanup := func() {}
-	if s.cfg.TransferDir != "" {
+	if s.cfg.TransferDir != "" && o.Files {
 		dir := filepath.Join(s.cfg.TransferDir, newID())
 		// guacd runs as a different user, so the folder must be open to it.
 		if os.Mkdir(dir, 0o777) == nil && os.Chmod(dir, 0o777) == nil {

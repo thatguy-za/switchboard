@@ -61,13 +61,13 @@ func (s *Server) tailscaleView() tailscaleView {
 
 // applyTailscale starts or stops the node to match the saved settings.
 // authKey is used for the first join only and is never stored.
-func (s *Server) applyTailscale(authKey string) {
+func (s *Server) applyTailscale(authKey string, signIn bool) {
 	enabled, hostname, serveUI := s.tailscaleSettings()
 	if !enabled {
 		s.ts.Stop()
 		return
 	}
-	s.ts.Start(tailnet.Options{Hostname: hostname, AuthKey: authKey, ServeUI: serveUI,
+	s.ts.Start(tailnet.Options{Hostname: hostname, AuthKey: authKey, SignIn: signIn, ServeUI: serveUI,
 		Port: s.cfg.Port, Handler: s.Handler()})
 }
 
@@ -81,6 +81,7 @@ func (s *Server) handleSetTailscale(w http.ResponseWriter, r *http.Request, _ *a
 		Hostname string `json:"hostname"`
 		ServeUI  bool   `json:"serve_ui"`
 		AuthKey  string `json:"auth_key"`
+		SignIn   bool   `json:"sign_in"`
 	}
 	if !decode(w, r, &in) {
 		return
@@ -94,7 +95,7 @@ func (s *Server) handleSetTailscale(w http.ResponseWriter, r *http.Request, _ *a
 		apiErr(w, http.StatusBadRequest, "bad_request")
 		return
 	}
-	if in.Enabled && in.AuthKey == "" && !s.ts.HasState() {
+	if in.Enabled && in.AuthKey == "" && !in.SignIn && !s.ts.HasState() {
 		apiErr(w, http.StatusBadRequest, "auth_key_required")
 		return
 	}
@@ -112,7 +113,7 @@ func (s *Server) handleSetTailscale(w http.ResponseWriter, r *http.Request, _ *a
 			return
 		}
 	}
-	s.applyTailscale(in.AuthKey)
+	s.applyTailscale(in.AuthKey, in.SignIn)
 	writeJSON(w, http.StatusOK, s.tailscaleView())
 }
 

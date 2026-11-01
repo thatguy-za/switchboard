@@ -469,3 +469,68 @@ func TestRDPHostRules(t *testing.T) {
 		t.Fatal("unrelated folder was removed")
 	}
 }
+
+func TestRDPOptions(t *testing.T) {
+	_, _, u := newBridgeEnv(t)
+	rdp := func(extra map[string]any) (int, map[string]any) {
+		body := map[string]any{"name": "pc", "protocol": "rdp", "address": "pc", "password": "x"}
+		for k, v := range extra {
+			body[k] = v
+		}
+		return u.do("POST", "/api/hosts", body)
+	}
+	// A new host gets the defaults.
+	code, out := rdp(nil)
+	if code != 200 {
+		t.Fatalf("create: %d %v", code, out)
+	}
+	o := out["rdp"].(map[string]any)
+	if o["width"] != float64(0) || o["depth"] != float64(32) || o["layout"] != "en-us-qwerty" || o["clipboard"] != true || o["wallpaper"] != false {
+		t.Fatalf("defaults: %v", o)
+	}
+	id := out["id"].(string)
+	// Saved options come back, and leaving them out keeps them.
+	saved := map[string]any{"width": 1600, "height": 900, "depth": 16, "layout": "de-de-qwertz", "wallpaper": true, "smoothing": false, "audio": false, "clipboard": false, "files": false}
+	if code, out = u.do("PUT", "/api/hosts/"+id, map[string]any{"name": "pc", "protocol": "rdp", "address": "pc", "rdp": saved}); code != 200 {
+		t.Fatalf("save options: %d %v", code, out)
+	}
+	if code, out = u.do("PUT", "/api/hosts/"+id, map[string]any{"name": "pc2", "protocol": "rdp", "address": "pc"}); code != 200 {
+		t.Fatalf("rename: %d %v", code, out)
+	}
+	o = out["rdp"].(map[string]any)
+	if o["width"] != float64(1600) || o["layout"] != "de-de-qwertz" || o["audio"] != false || o["files"] != false {
+		t.Fatalf("options lost on a plain save: %v", o)
+	}
+	// Bad values are refused.
+	for name, bad := range map[string]map[string]any{
+		"half a size":  {"width": 1280, "height": 0, "depth": 32, "layout": "en-us-qwerty"},
+		"tiny":         {"width": 100, "height": 100, "depth": 32, "layout": "en-us-qwerty"},
+		"huge":         {"width": 9000, "height": 4000, "depth": 32, "layout": "en-us-qwerty"},
+		"bad depth":    {"width": 0, "height": 0, "depth": 8, "layout": "en-us-qwerty"},
+		"bad layout":   {"width": 0, "height": 0, "depth": 32, "layout": "klingon"},
+		"empty layout": {"width": 0, "height": 0, "depth": 32, "layout": ""},
+	} {
+		if code, _ := rdp(map[string]any{"rdp": bad}); code != 400 {
+			t.Fatalf("%s accepted: %d", name, code)
+		}
+	}
+}
+
+func TestClientPolicy(t *testing.T) {
+	frame := guac.Encode("size", "800", "600") + guac.Encode("clipboard", "1", "text/plain") + guac.Encode("get", "1", "/") + guac.Encode("key", "65", "1")
+	kept := func(p clientPolicy) string {
+		out, _, _, err := filterClientFrame([]byte(frame), p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(out)
+	}
+	all := kept(clientPolicy{size: true, clipboard: true, files: true})
+	if all != frame {
+		t.Fatalf("a permissive policy changed the frame: %q", all)
+	}
+	got := kept(clientPolicy{})
+	if got != guac.Encode("key", "65", "1") {
+		t.Fatalf("a closed policy let through: %q", got)
+	}
+}

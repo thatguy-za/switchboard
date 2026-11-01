@@ -80,7 +80,7 @@ func New(cfg Config, web fs.FS) (*Server, error) {
 	s.ts = tailnet.New(filepath.Join(cfg.DataDir, "tailscale"))
 	s.prepareTransfers()
 	go s.janitor()
-	s.applyTailscale("")
+	s.applyTailscale("", false)
 	return s, nil
 }
 
