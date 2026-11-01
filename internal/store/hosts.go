@@ -14,6 +14,8 @@ type Host struct {
 	Username, Auth, IdentityID          string
 	PasswordBlob                        []byte
 	Protocol, Theme                     string
+	RDPSecurity                         string
+	RDPIgnoreCert                       bool
 	CreatedAt                           int64
 }
 
@@ -91,12 +93,12 @@ func (s *Store) DeleteFolder(id, userID string) error {
 /* hosts */
 
 const hostCols = `id, user_id, COALESCE(folder_id, ''), name, address, port, username, auth,
-	COALESCE(identity_id, ''), password_blob, protocol, theme, created_at`
+	COALESCE(identity_id, ''), password_blob, protocol, theme, rdp_security, rdp_ignore_cert, created_at`
 
 func scanHost(r scanner) (*Host, error) {
 	var h Host
 	err := r.Scan(&h.ID, &h.UserID, &h.FolderID, &h.Name, &h.Address, &h.Port, &h.Username, &h.Auth,
-		&h.IdentityID, &h.PasswordBlob, &h.Protocol, &h.Theme, &h.CreatedAt)
+		&h.IdentityID, &h.PasswordBlob, &h.Protocol, &h.Theme, &h.RDPSecurity, &h.RDPIgnoreCert, &h.CreatedAt)
 	return &h, found(err)
 }
 
@@ -124,17 +126,17 @@ func (s *Store) GetHost(id, userID string) (*Host, error) {
 func (s *Store) CreateHost(h *Host) error {
 	h.CreatedAt = time.Now().Unix()
 	_, err := s.db.Exec(`INSERT INTO hosts (id, user_id, folder_id, name, address, port, username, auth,
-		identity_id, password_blob, protocol, theme, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		identity_id, password_blob, protocol, theme, rdp_security, rdp_ignore_cert, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		h.ID, h.UserID, nullable(h.FolderID), h.Name, h.Address, h.Port, h.Username, h.Auth,
-		nullable(h.IdentityID), h.PasswordBlob, h.Protocol, h.Theme, h.CreatedAt)
+		nullable(h.IdentityID), h.PasswordBlob, h.Protocol, h.Theme, h.RDPSecurity, h.RDPIgnoreCert, h.CreatedAt)
 	return err
 }
 
 func (s *Store) UpdateHost(h *Host) error {
 	_, err := s.db.Exec(`UPDATE hosts SET folder_id=?, name=?, address=?, port=?, username=?, auth=?,
-		identity_id=?, password_blob=?, theme=? WHERE id=? AND user_id=?`,
+		identity_id=?, password_blob=?, theme=?, protocol=?, rdp_security=?, rdp_ignore_cert=? WHERE id=? AND user_id=?`,
 		nullable(h.FolderID), h.Name, h.Address, h.Port, h.Username, h.Auth,
-		nullable(h.IdentityID), h.PasswordBlob, h.Theme, h.ID, h.UserID)
+		nullable(h.IdentityID), h.PasswordBlob, h.Theme, h.Protocol, h.RDPSecurity, h.RDPIgnoreCert, h.ID, h.UserID)
 	return err
 }
 

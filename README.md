@@ -33,6 +33,31 @@ permission denied, unreachable, host key not trusted, or key added but login wit
 - Targets need a POSIX shell. Windows OpenSSH and network gear report that they aren't supported.
 - Removing a pushed key from servers isn't built yet: the key stays in `authorized_keys` until you remove it.
 
+### Remote desktops (RDP)
+
+Add a host with type *Remote desktop (RDP)* and open it like any other: it appears in a tab or in a
+split pane beside terminals. Switchboard hands the connection to `guacd` (the Apache Guacamole proxy,
+run as a second container) and streams the desktop to your browser; the host's password is added on the
+server and never reaches the browser.
+
+- **Resolution** follows the pane, so resizing the window or a divider resizes the remote desktop.
+- **Reconnect:** a dropped connection retries with backoff and returns to your Windows session.
+- **Clipboard:** text copies both ways. Browsers only allow automatic clipboard access over HTTPS, so
+  on plain `http://ip:3000` paste works with Ctrl+V and text copied on the desktop waits in the
+  *Clipboard* panel. Put Switchboard behind a TLS reverse proxy for fully automatic sync.
+- **Files:** the *Files* panel uploads to, and downloads from, a drive called "Switchboard" on the remote
+  desktop. You can also drop files onto the desktop. Files live on a RAM-backed volume capped at 512 MB
+  that is emptied when a session ends and whenever the containers restart.
+- **Audio** from the remote machine plays in the browser. Your first click in the pane starts it.
+- **Ctrl+Alt+Del** has its own button, since browsers can't send it.
+- **Certificates:** Windows machines usually present self-signed certificates, so *Accept self-signed
+  certificates* is on by default. Turn it off per host on networks you don't trust.
+- `DOMAIN\user` works as a username. Set `SWITCHBOARD_MAX_RDP` (default 10) to limit concurrent desktops.
+
+Not included yet: microphone, printing, multiple monitors, other keyboard layouts (US only), RDP through
+jump hosts, and a polished on-screen keyboard on phones (typing there is best effort).
+`guacamole/guacd:1.6.0` is used because it is published for both amd64 and arm64.
+
 ### Jump hosts, forwards and split panes
 
 A host can list jump hosts to connect through, in order. Each hop signs in with its own saved
@@ -51,7 +76,7 @@ Each terminal tab can be split right or down into up to six panes, each its own 
 When Switchboard sits behind a reverse proxy, pass the original `Host` header and WebSocket upgrades through,
 and set `X-Forwarded-Proto: https` so cookies are marked Secure.
 
-xterm.js 5.5.0 and its fit addon are vendored in `cmd/switchboard/web/vendor`, so the page loads nothing from a CDN.
+xterm.js 5.5.0, its fit addon and guacamole-common-js 1.5.0 (Apache-2.0, license kept beside it) are vendored in `cmd/switchboard/web/vendor`, so the page loads nothing from a CDN.
 
 ## Master key
 

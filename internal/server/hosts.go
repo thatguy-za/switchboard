@@ -11,6 +11,8 @@ import (
 
 var themes = map[string]bool{"auto": true, "dark": true, "light": true, "contrast": true}
 
+var rdpSecurity = map[string]bool{"any": true, "nla": true, "tls": true, "rdp": true}
+
 type folderView struct {
 	ID       string `json:"id"`
 	ParentID string `json:"parent_id"`
@@ -29,6 +31,8 @@ type hostView struct {
 	HasPassword bool          `json:"has_password"`
 	Protocol    string        `json:"protocol"`
 	Theme       string        `json:"theme"`
+	Security    string        `json:"security"`
+	IgnoreCert  bool          `json:"ignore_cert"`
 	Jumps       []string      `json:"jumps"`
 	Forwards    []forwardView `json:"forwards"`
 }
@@ -43,7 +47,8 @@ type forwardView struct {
 func toHostView(h *store.Host, jumps []string, forwards []store.Forward) hostView {
 	v := hostView{ID: h.ID, FolderID: h.FolderID, Name: h.Name, Address: h.Address, Port: h.Port,
 		Username: h.Username, Auth: h.Auth, IdentityID: h.IdentityID, HasPassword: h.PasswordBlob != nil,
-		Protocol: h.Protocol, Theme: h.Theme, Jumps: []string{}, Forwards: []forwardView{}}
+		Protocol: h.Protocol, Theme: h.Theme, Security: h.RDPSecurity, IgnoreCert: h.RDPIgnoreCert,
+		Jumps: []string{}, Forwards: []forwardView{}}
 	v.Jumps = append(v.Jumps, jumps...)
 	for _, f := range forwards {
 		v.Forwards = append(v.Forwards, forwardView{f.Kind, f.BindPort, f.DestHost, f.DestPort})
@@ -173,6 +178,9 @@ type hostInput struct {
 	IdentityID string        `json:"identity_id"`
 	Password   *string       `json:"password"` // nil keeps the stored password, "" clears it
 	Theme      string        `json:"theme"`
+	Protocol   string        `json:"protocol"`
+	Security   string        `json:"security"`
+	IgnoreCert *bool         `json:"ignore_cert"`
 	Jumps      []string      `json:"jumps"`
 	Forwards   []forwardView `json:"forwards"`
 }
@@ -193,7 +201,7 @@ func (s *Server) chainInput(h *store.Host, in *hostInput, a *authed) ([]string, 
 			return nil, nil, false
 		}
 		seen[id] = true
-		if _, err := s.db.GetHost(id, a.user.ID); err != nil {
+		if j, err := s.db.GetHost(id, a.user.ID); err != nil || j.Protocol != "ssh" {
 			return nil, nil, false
 		}
 	}
@@ -224,7 +232,25 @@ func (s *Server) chainInput(h *store.Host, in *hostInput, a *authed) ([]string, 
 // with the caller's vault key.
 func (s *Server) applyHostInput(h *store.Host, in *hostInput, a *authed) string {
 	in.Name, in.Address, in.Username = strings.TrimSpace(in.Name), strings.TrimSpace(in.Address), strings.TrimSpace(in.Username)
-	if in.Port == 0 {
+	if in.Protocol == "" {
+		in.Protocol = h.Protocol
+	}
+	if in.Protocol == "" {
+		in.Protocol = "ssh"
+	}
+	if in.Protocol == "rdp" {
+		// RDP signs in with a password, over a direct connection.
+		in.Auth, in.IdentityID, in.Theme = "password", "", "auto"
+		if in.Port == 0 {
+			in.Port = 3389
+		}
+		if in.Security == "" {
+			in.Security = "any"
+		}
+		if len(in.Jumps) > 0 || len(in.Forwards) > 0 {
+			return "bad_request"
+		}
+	} else if in.Port == 0 {
 		in.Port = 22
 	}
 	if in.Theme == "" {
@@ -232,7 +258,9 @@ func (s *Server) applyHostInput(h *store.Host, in *hostInput, a *authed) string 
 	}
 	switch {
 	case in.Name == "" || len(in.Name) > 80, in.Address == "" || len(in.Address) > 255,
-		len(in.Username) > 64, in.Port < 1 || in.Port > 65535, !themes[in.Theme],
+		len(in.Username) > 128, in.Port < 1 || in.Port > 65535, !themes[in.Theme],
+		in.Protocol != "ssh" && in.Protocol != "rdp",
+		in.Protocol == "rdp" && !rdpSecurity[in.Security],
 		in.Auth != "password" && in.Auth != "key":
 		return "bad_request"
 	}
@@ -248,6 +276,18 @@ func (s *Server) applyHostInput(h *store.Host, in *hostInput, a *authed) string 
 	}
 	h.Name, h.FolderID, h.Address, h.Port, h.Username = in.Name, in.FolderID, in.Address, in.Port, in.Username
 	h.Auth, h.Theme, h.IdentityID = in.Auth, in.Theme, in.IdentityID
+	h.Protocol = in.Protocol
+	if in.Protocol == "rdp" {
+		h.RDPSecurity = in.Security
+		if in.IgnoreCert != nil {
+			h.RDPIgnoreCert = *in.IgnoreCert
+		} else if h.RDPSecurity == "" || h.CreatedAt == 0 {
+			h.RDPIgnoreCert = true
+		}
+	}
+	if h.RDPSecurity == "" {
+		h.RDPSecurity = "any"
+	}
 	if in.Auth == "password" {
 		h.IdentityID = ""
 	}
@@ -265,7 +305,7 @@ func (s *Server) handleCreateHost(w http.ResponseWriter, r *http.Request, a *aut
 	if !decode(w, r, &in) {
 		return
 	}
-	h := &store.Host{ID: newID(), UserID: a.user.ID, Protocol: "ssh"}
+	h := &store.Host{ID: newID(), UserID: a.user.ID, RDPSecurity: "any", RDPIgnoreCert: true}
 	if code := s.applyHostInput(h, &in, a); code != "" {
 		apiErr(w, http.StatusBadRequest, code)
 		return

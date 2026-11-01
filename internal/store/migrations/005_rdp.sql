@@ -1,0 +1,2 @@
+ALTER TABLE hosts ADD COLUMN rdp_security    TEXT    NOT NULL DEFAULT 'any';
+ALTER TABLE hosts ADD COLUMN rdp_ignore_cert INTEGER NOT NULL DEFAULT 1;

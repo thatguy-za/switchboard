@@ -7,12 +7,13 @@ COPY cmd ./cmd
 COPY internal ./internal
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     go build -trimpath -ldflags="-s -w" -o /out/switchboard ./cmd/switchboard \
- && mkdir /out/data /out/keys
+ && mkdir /out/data /out/keys /out/transfer
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/switchboard /switchboard
 COPY --from=build --chown=65532:65532 /out/data /data
 COPY --from=build --chown=65532:65532 /out/keys /keys
+COPY --from=build --chown=65532:65532 /out/transfer /transfer
 ENV SWITCHBOARD_PORT=3000
 EXPOSE 3000
 VOLUME ["/data", "/keys"]

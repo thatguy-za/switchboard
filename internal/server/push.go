@@ -78,6 +78,9 @@ func pushError(code, msg string) pushResult {
 // pushKey installs an identity's public key on a host, checks that signing in
 // with it works, and only then switches the host over to it.
 func (s *Server) pushKey(ctx context.Context, a *authed, ident *store.Identity, host *store.Host) pushResult {
+	if host.Protocol != "ssh" {
+		return pushError("unsupported", "Keys can only be pushed to SSH hosts.")
+	}
 	hops, _, err := s.chainFor(host, a)
 	if err != nil {
 		return pushError("error", "This host's jump list is no longer valid.")

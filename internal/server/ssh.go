@@ -108,6 +108,10 @@ func (s *Server) handleSSH(w http.ResponseWriter, r *http.Request, a *authed) {
 		apiErr(w, http.StatusNotFound, "not_found")
 		return
 	}
+	if host.Protocol != "ssh" {
+		apiErr(w, http.StatusBadRequest, "wrong_protocol")
+		return
+	}
 	hops, forwards, err := s.chainFor(host, a)
 	if err != nil {
 		apiErr(w, http.StatusConflict, "bad_chain")
@@ -307,6 +311,9 @@ func (s *Server) chainFor(h *store.Host, a *authed) ([]*store.Host, []store.Forw
 		j, err := s.db.GetHost(id, a.user.ID)
 		if err != nil {
 			return nil, nil, err
+		}
+		if j.Protocol != "ssh" {
+			return nil, nil, errors.New("jump host is not an SSH host")
 		}
 		hops = append(hops, j)
 	}

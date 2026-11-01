@@ -61,6 +61,14 @@ func (x *sessions) get(token string, timeout time.Duration) (*session, bool) {
 	return se, true
 }
 
+// alive reports whether a session is still valid without counting as activity.
+func (x *sessions) alive(token string, timeout time.Duration) bool {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	se, ok := x.s[token]
+	return ok && time.Since(se.last) <= timeout
+}
+
 func (x *sessions) dropLocked(token string) {
 	if se, ok := x.s[token]; ok {
 		crypto.Zero(se.vk)

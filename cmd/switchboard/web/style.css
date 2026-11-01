@@ -207,3 +207,22 @@ details > p { margin: 8px 0; }
 .res.ok { color: var(--accent); }
 .res.bad { color: var(--danger); }
 .res.work { color: var(--muted); }
+
+/* ---------- remote desktop panes ---------- */
+.tag { flex: none; font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; }
+.rdpwrap { position: relative; flex: 1; min-height: 0; background: #000; overflow: hidden; }
+.rdpscreen { position: absolute; top: 0; left: 0; touch-action: none; }
+.sink { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; resize: none; font-size: 16px; }
+.rpanel { position: absolute; top: 6px; right: 6px; z-index: 6; width: min(380px, calc(100% - 12px)); max-height: calc(100% - 12px); overflow: auto;
+  background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; }
+.rpanel[hidden] { display: none; }
+.rpanel textarea { width: 100%; }
+.pbtn.news::after { content: ""; display: inline-block; width: 6px; height: 6px; margin-left: 5px; border-radius: 50%; background: var(--accent); }
+.filelist { max-height: 30vh; overflow: auto; margin: 6px 0; display: flex; flex-direction: column; }
+.fentry { text-align: left; border-color: transparent; padding: 4px 6px; overflow-wrap: anywhere; }
+.fentry:hover, .fentry:focus-visible { background: var(--bg); border-color: var(--line); }
+.filecrumb { margin: 8px 0 2px; }
+.phead { flex-wrap: wrap; row-gap: 0; }
+.pbtn { white-space: nowrap; }
+label.check { flex-wrap: wrap; }
+label.check > .small { flex-basis: 100%; margin-left: 26px; }

@@ -50,11 +50,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("SWITCHBOARD_PORT: %v", err)
 	}
+	maxRDP, err := strconv.Atoi(env("SWITCHBOARD_MAX_RDP", "10"))
+	if err != nil || maxRDP < 1 {
+		log.Fatal("SWITCHBOARD_MAX_RDP must be a positive number")
+	}
 	srv, err := server.New(server.Config{
 		DataDir:        env("SWITCHBOARD_DATA_DIR", "/data"),
 		KeysDir:        env("SWITCHBOARD_KEYS_DIR", "/keys"),
 		Port:           port,
 		SessionTimeout: timeout,
+		Guacd:          env("SWITCHBOARD_GUACD", "guacd:4822"),
+		TransferDir:    env("SWITCHBOARD_TRANSFER_DIR", "/transfer"),
+		MaxRDP:         maxRDP,
 	}, web)
 	if err != nil {
 		log.Fatal(err)

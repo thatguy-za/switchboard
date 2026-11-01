@@ -4,22 +4,41 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+      # A local port forward listens inside this container. To reach one from
+      # outside, publish its port here, for example:
+      # - "8443:8443"
     environment:
       SWITCHBOARD_PORT: "3000"
       SWITCHBOARD_SESSION_TIMEOUT: "${SWITCHBOARD_SESSION_TIMEOUT:-30m}"
       SWITCHBOARD_GUACD: guacd:4822
+      SWITCHBOARD_TRANSFER_DIR: /transfer
+      SWITCHBOARD_MAX_RDP: "${SWITCHBOARD_MAX_RDP:-10}"
     volumes:
       - switchboard-data:/data
       # The master key is generated here on first run. Back it up from the admin
       # panel and keep the copy away from the data volume.
       - switchboard-keys:/keys
+      - switchboard-transfer:/transfer
     depends_on:
       - guacd
 
+  # Does the actual RDP. Only Switchboard talks to it; it publishes no ports.
   guacd:
-    image: guacamole/guacd:1.5.5
+    image: guacamole/guacd:1.6.0
     restart: unless-stopped
+    volumes:
+      # Shared with Switchboard so files can pass between your browser and the
+      # remote desktop's "Switchboard" drive.
+      - switchboard-transfer:/transfer
 
 volumes:
   switchboard-data:
   switchboard-keys:
+  # RAM-backed and capped, so transferred files never touch disk and are gone
+  # when the containers restart. Open to both containers (guacd runs as another user).
+  switchboard-transfer:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: size=512m,mode=1777

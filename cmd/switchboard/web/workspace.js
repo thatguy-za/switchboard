@@ -29,7 +29,7 @@ function termPrefs() {
 
 function saveTermPrefs(p) {
   try { localStorage.setItem('sb_term', JSON.stringify(p)); } catch (e) { /* storage unavailable */ }
-  for (const sess of allSessions()) {
+  for (const sess of allSessions().filter(x => x.kind !== 'rdp')) {
     sess.term.options.fontFamily = p.font;
     sess.term.options.fontSize = p.size;
   }
@@ -140,7 +140,7 @@ function renderTree() {
   const q = $q(WS.term, '#q').value.trim().toLowerCase();
   const hostRow = (h, depth, hint) => `
     <div class="row host d${Math.min(depth, 6)}" tabindex="0" data-host="${esc(h.id)}">
-      <span class="name">${esc(h.name)}</span>
+      <span class="name">${esc(h.name)}</span>${h.protocol === 'rdp' ? '<span class="tag">RDP</span>' : ''}
       <span class="muted addr">${esc(hint || (h.username ? h.username + '@' : '') + h.address)}</span>
       <button class="mini" data-edit-host="${esc(h.id)}" aria-label="Edit ${esc(h.name)}">Edit</button>
     </div>`;
@@ -198,7 +198,7 @@ function bindTree() {
 /* ---------- host and folder dialogs ---------- */
 
 function hostDialog(host) {
-  const h = host || { name: '', folder_id: '', address: '', port: 22, username: '', auth: 'password', identity_id: '', has_password: false, theme: 'auto', jumps: [], forwards: [] };
+  const h = host || { name: '', folder_id: '', address: '', port: 22, username: '', auth: 'password', identity_id: '', has_password: false, theme: 'auto', jumps: [], forwards: [], protocol: 'ssh', security: 'any', ignore_cert: true };
   const jumps = [...h.jumps];
   const fwds = h.forwards.map(f => ({ ...f }));
   const idOpts = WS.identities.length
@@ -208,25 +208,32 @@ function hostDialog(host) {
     .map(t => `<option value="${t}"${t === h.theme ? ' selected' : ''}>${t[0].toUpperCase() + t.slice(1)}</option>`).join('');
   const d = dialog(host ? 'Edit host' : 'New host', `
     <label>Name<input type="text" name="name" value="${esc(h.name)}" required maxlength="80"></label>
+    <label>Type<select name="protocol"><option value="ssh"${h.protocol !== 'rdp' ? ' selected' : ''}>SSH terminal</option>
+      <option value="rdp"${h.protocol === 'rdp' ? ' selected' : ''}>Remote desktop (RDP)</option></select></label>
     <label>Folder<select name="folder_id">${folderOptions(h.folder_id)}</select></label>
     <div class="inline">
       <label>Address<input type="text" name="address" value="${esc(h.address)}" required autocapitalize="off" spellcheck="false"></label>
       <label class="narrow">Port<input type="number" name="port" value="${esc(h.port)}" min="1" max="65535" required></label>
     </div>
-    <label>Username<input type="text" name="username" value="${esc(h.username)}" autocapitalize="off" spellcheck="false" autocomplete="off"></label>
-    <label>Sign in with<select name="auth"><option value="password"${h.auth === 'password' ? ' selected' : ''}>Password</option>
+    <label>Username<input type="text" name="username" value="${esc(h.username)}" autocapitalize="off" spellcheck="false" autocomplete="off">
+      <span class="muted small" data-proto="rdp">For a domain account, use DOMAIN\\user.</span></label>
+    <label data-sshonly>Sign in with<select name="auth"><option value="password"${h.auth === 'password' ? ' selected' : ''}>Password</option>
       <option value="key"${h.auth === 'key' ? ' selected' : ''}>Identity (SSH key)</option></select></label>
     <label data-for="password">Password<input type="password" name="password" autocomplete="new-password"
       placeholder="${h.has_password ? 'Saved. Leave blank to keep it.' : ''}"></label>
-    <label data-for="key">Identity<select name="identity_id">${idOpts}</select></label>
+    <label data-for="key" data-sshonly>Identity<select name="identity_id">${idOpts}</select></label>
+    <label data-proto="rdp">Security<select name="security">${[['any', 'Automatic'], ['nla', 'Network Level Authentication'], ['tls', 'TLS'], ['rdp', 'Standard RDP (legacy)']]
+      .map(([v, t]) => `<option value="${v}"${v === h.security ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
+    <label class="check" data-proto="rdp"><input type="checkbox" name="ignore_cert"${h.ignore_cert ? ' checked' : ''}> Accept self-signed certificates
+      <span class="muted small">Windows PCs usually have one. Turn off on networks you don't trust.</span></label>
     ${h.has_password ? '<label class="check"><input type="checkbox" name="forget"> Forget the saved password</label>' : ''}
-    <label>Terminal colours<select name="theme">${themeOpts}</select></label>
-    <details id="jsec"${jumps.length ? ' open' : ''}><summary>Jump hosts</summary>
+    <label data-sshonly>Terminal colours<select name="theme">${themeOpts}</select></label>
+    <details id="jsec" data-sshonly${jumps.length ? ' open' : ''}><summary>Jump hosts</summary>
       <p class="muted small">Connect through these hosts first, in order. Each one signs in with its own saved credentials.</p>
       <div id="jlist"></div>
       <div class="inline"><label>Add a hop<select id="jadd"></select></label><button type="button" id="jbtn">Add</button></div>
     </details>
-    <details id="fsec"${fwds.length ? ' open' : ''}><summary>Port forwards</summary>
+    <details id="fsec" data-sshonly${fwds.length ? ' open' : ''}><summary>Port forwards</summary>
       <p class="muted small"><strong>Local:</strong> Switchboard listens on the port and reaches the destination through this host.
         <strong>Remote:</strong> this host listens on its loopback port and reaches the destination from Switchboard.
         Forwards last while a terminal for this host is open. A local forward is reachable only on ports you publish for the Switchboard container.</p>
@@ -234,13 +241,17 @@ function hostDialog(host) {
     </details>`, {
     extra: host ? '<button type="button" class="danger" data-del>Delete</button>' : '',
     onSubmit: async fd => {
+      const rdp = fd.get('protocol') === 'rdp';
       const body = {
         name: fd.get('name'), folder_id: fd.get('folder_id'), address: fd.get('address'),
-        port: Number(fd.get('port')), username: fd.get('username'), auth: fd.get('auth'),
-        identity_id: fd.get('auth') === 'key' ? fd.get('identity_id') : '', theme: fd.get('theme'),
-        jumps,
-        forwards: fwds.map(f => ({ kind: f.kind, bind_port: Number(f.bind_port), dest_host: String(f.dest_host || '').trim(), dest_port: Number(f.dest_port) })),
+        port: Number(fd.get('port')), username: fd.get('username'), protocol: fd.get('protocol'),
+        auth: rdp ? 'password' : fd.get('auth'),
+        identity_id: !rdp && fd.get('auth') === 'key' ? fd.get('identity_id') : '', theme: rdp ? 'auto' : fd.get('theme'),
+        security: fd.get('security'), ignore_cert: fd.get('ignore_cert') !== null,
+        jumps: rdp ? [] : jumps,
+        forwards: rdp ? [] : fwds.map(f => ({ kind: f.kind, bind_port: Number(f.bind_port), dest_host: String(f.dest_host || '').trim(), dest_port: Number(f.dest_port) })),
       };
+      if (rdp && !host && !fd.get('password')) throw new Error('Enter the password for this host.');
       if (body.auth === 'key' && !body.identity_id) throw new Error('Choose an identity, or create one in the Identities tab.');
       if (body.auth === 'password' && (fd.get('password') || !host)) body.password = fd.get('password');
       if (fd.get('forget') && !fd.get('password')) body.password = '';
@@ -255,9 +266,19 @@ function hostDialog(host) {
   d.classList.add('wide');
 
   const sync = () => {
+    const proto = d.querySelector('[name=protocol]').value;
     const auth = d.querySelector('[name=auth]').value;
-    d.querySelectorAll('[data-for]').forEach(l => { l.hidden = l.dataset.for !== auth; });
+    d.querySelectorAll('[data-proto]').forEach(e => { e.hidden = e.dataset.proto !== proto; });
+    d.querySelectorAll('[data-sshonly]').forEach(e => { e.hidden = proto === 'rdp'; });
+    d.querySelectorAll('[data-for]').forEach(l => { l.hidden = proto === 'rdp' ? l.dataset.for !== 'password' : l.dataset.for !== auth; });
   };
+  const portField = d.querySelector('[name=port]');
+  d.querySelector('[name=protocol]').addEventListener('change', ev => {
+    // Swap the default port only if it still holds the other protocol's default.
+    if (ev.target.value === 'rdp' && portField.value === '22') portField.value = '3389';
+    if (ev.target.value === 'ssh' && portField.value === '3389') portField.value = '22';
+    sync();
+  });
   d.querySelector('[name=auth]').addEventListener('change', sync);
   sync();
 
@@ -477,6 +498,16 @@ function updateHead(sess) {
 }
 
 function newSession(host, wtab) {
+  return host.protocol === 'rdp' ? newRdpSession(host, wtab) : newSshSession(host, wtab);
+}
+
+// Give keyboard focus to a pane's terminal or remote desktop.
+function sessFocus(sess) {
+  if (!sess) return;
+  if (sess.kind === 'rdp') rdpFocus(sess); else sess.term.focus();
+}
+
+function newSshSession(host, wtab) {
   const prefs = termPrefs();
   const pane = el('div', 'pane');
   pane.innerHTML = `
@@ -495,7 +526,7 @@ function newSession(host, wtab) {
   const fit = new FitAddon.FitAddon();
   term.loadAddon(fit);
   const sess = {
-    host, wtab, term, fit, pane, head: pane.querySelector('.phead'), fwdList: pane.querySelector('.fwdlist'),
+    kind: 'ssh', host, wtab, term, fit, pane, head: pane.querySelector('.phead'), fwdList: pane.querySelector('.fwdlist'),
     holder: pane.querySelector('.term'), overlay: pane.querySelector('.tover'),
     sock: null, state: 'connecting', retries: 0, timer: null, closed: false, connectedBefore: false, opened: false, fwd: [],
   };
@@ -516,6 +547,7 @@ function newSession(host, wtab) {
 
 // The terminal can only be opened once its pane is in the page.
 function ensureOpen(sess) {
+  if (sess.kind === 'rdp') return rdpOpen(sess);
   if (sess.opened) return;
   sess.opened = true;
   sess.term.open(sess.holder);
@@ -525,6 +557,7 @@ function ensureOpen(sess) {
 }
 
 function fitSess(sess) {
+  if (sess.kind === 'rdp') return rdpFit(sess);
   try { if (sess.opened && !sess.closed && sess.holder.offsetParent !== null) sess.fit.fit(); } catch (e) { /* not laid out yet */ }
 }
 
@@ -538,6 +571,7 @@ function focusSession(sess) {
 }
 
 function connect(sess) {
+  if (sess.kind === 'rdp') return rdpConnect(sess);
   clearTimeout(sess.timer);
   sess.fwd = [];
   setState(sess, 'connecting');
@@ -586,7 +620,7 @@ function onControl(sess, m) {
       hideOverlay(sess);
       setState(sess, 'live');
       sendCtl(sess, { type: 'resize', cols: sess.term.cols, rows: sess.term.rows });
-      if (WS.active && WS.active.active === sess) sess.term.focus();
+      if (WS.active && WS.active.active === sess) sessFocus(sess);
       break;
     case 'forward':
       sess.fwd[m.forward.index] = m.forward;
@@ -701,11 +735,12 @@ function splitSession(sess, dir) {
     wtab.active = added;
     renderLayout(wtab);
     connect(added);
-    added.term.focus();
+    sessFocus(added);
   });
 }
 
 function teardown(sess) {
+  if (sess.kind === 'rdp') return rdpTeardown(sess);
   sess.closed = true;
   clearTimeout(sess.timer);
   sess.ro.disconnect();
@@ -722,7 +757,7 @@ function closeSession(sess) {
   if (wtab.active === sess) wtab.active = leaves(wtab.root)[0];
   renderLayout(wtab);
   renderTabs();
-  if (WS.active === wtab) wtab.active.term.focus();
+  if (WS.active === wtab) sessFocus(wtab.active);
 }
 
 function closeTab(wtab) {
@@ -740,7 +775,7 @@ function activateTab(wtab) {
   $q(WS.term, '#empty').hidden = !!wtab;
   $q(WS.term, '#side').classList.remove('open');
   renderTabs();
-  requestAnimationFrame(() => { if (wtab) { fitActive(); wtab.active.term.focus(); } });
+  requestAnimationFrame(() => { if (wtab) { fitActive(); sessFocus(wtab.active); } });
 }
 
 function renderTabs() {
@@ -801,11 +836,12 @@ function newIdentityDialog() {
 }
 
 function pushDialog(ident) {
-  if (!WS.hosts.length) {
-    dialog(`Push ${ident.name}`, '<p>Add a host first, then push this key to it from the Identities tab.</p>');
+  const sshHosts = WS.hosts.filter(h => h.protocol !== 'rdp');
+  if (!sshHosts.length) {
+    dialog(`Push ${ident.name}`, '<p>Add an SSH host first, then push this key to it from the Identities tab.</p>');
     return;
   }
-  const hosts = [...WS.hosts].sort((a, b) => folderPath(a.folder_id).localeCompare(folderPath(b.folder_id)) || byName(a, b));
+  const hosts = [...sshHosts].sort((a, b) => folderPath(a.folder_id).localeCompare(folderPath(b.folder_id)) || byName(a, b));
   const rows = hosts.map(h => {
     const hint = [folderPath(h.folder_id), (h.username ? h.username + '@' : '') + h.address].filter(Boolean).join(' \u00b7 ');
     return `<label class="check prow" data-id="${esc(h.id)}"><input type="checkbox" value="${esc(h.id)}">
@@ -954,7 +990,7 @@ function mountWorkspace(termRoot, idRoot) {
   const q = $q(termRoot, '#q');
   q.addEventListener('input', renderTree);
   q.addEventListener('keydown', ev => {
-    if (ev.key === 'Escape') { q.value = ''; renderTree(); q.blur(); if (WS.active) WS.active.active.term.focus(); }
+    if (ev.key === 'Escape') { q.value = ''; renderTree(); q.blur(); if (WS.active) sessFocus(WS.active.active); }
     if (ev.key === 'Enter') {
       const first = $q(termRoot, '#tree [data-host]');
       if (first) { first.click(); q.value = ''; renderTree(); }
@@ -979,7 +1015,7 @@ function mountWorkspace(termRoot, idRoot) {
     if (!b) return;
     if (b.dataset.key === 'ctrl') return setCtrl(!WS.ctrl);
     const sess = WS.active && WS.active.active;
-    if (sess) { sendRaw(sess, keys[b.dataset.key]); sess.term.focus(); }
+    if (sess && sess.kind !== 'rdp') { sendRaw(sess, keys[b.dataset.key]); sess.term.focus(); }
   });
 
   WS.keyHandler = ev => {

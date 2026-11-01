@@ -31,6 +31,9 @@ type Config struct {
 	DataDir, KeysDir string
 	Port             int // the web port; local forwards may not listen on it
 	SessionTimeout   time.Duration
+	Guacd            string // host:port of guacd, for RDP
+	TransferDir      string // folder shared with guacd for RDP file transfer; empty turns it off
+	MaxRDP           int    // concurrent RDP sessions allowed
 }
 
 type Server struct {
@@ -43,6 +46,8 @@ type Server struct {
 	web        fs.FS
 	dummyHash  string
 	stop       chan struct{}
+	rdpMu      sync.Mutex
+	rdpActive  int
 }
 
 func New(cfg Config, web fs.FS) (*Server, error) {
@@ -54,11 +59,18 @@ func New(cfg Config, web fs.FS) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	if cfg.Guacd == "" {
+		cfg.Guacd = "guacd:4822"
+	}
+	if cfg.MaxRDP == 0 {
+		cfg.MaxRDP = 10
+	}
 	s := &Server{
 		cfg: cfg, db: db, master: master, keyCreated: created, web: web,
 		sess: newSessions(), limit: newLimiter(20, time.Minute),
 		dummyHash: crypto.HashPassword("dummy"), stop: make(chan struct{}),
 	}
+	s.clearTransfers()
 	go s.janitor()
 	return s, nil
 }
@@ -115,6 +127,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/identities/{id}/export", s.auth(true, s.handleExportIdentity))
 	mux.HandleFunc("POST /api/identities/{id}/push", s.auth(true, s.handlePush))
 	mux.HandleFunc("GET /api/ws/ssh/{id}", s.auth(true, s.handleSSH))
+	mux.HandleFunc("GET /api/ws/rdp/{id}", s.auth(true, s.handleRDP))
 
 	mux.HandleFunc("GET /api/admin/users", s.admin(s.handleListUsers))
 	mux.HandleFunc("POST /api/admin/users", s.admin(s.handleCreateUser))

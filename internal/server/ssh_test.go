@@ -463,9 +463,16 @@ func TestIdentities(t *testing.T) {
 func pemEncode(b *pem.Block) []byte { return pem.EncodeToMemory(b) }
 
 func newBridgeEnv(t *testing.T) (*Server, *httptest.Server, *client) {
+	return newBridgeEnvCfg(t, nil)
+}
+
+func newBridgeEnvCfg(t *testing.T, mutate func(*Config)) (*Server, *httptest.Server, *client) {
 	dir := t.TempDir()
-	srv, err := New(Config{DataDir: dir, KeysDir: dir + "/keys", SessionTimeout: time.Minute},
-		fstest.MapFS{"index.html": {Data: []byte("hi")}})
+	cfg := Config{DataDir: dir, KeysDir: dir + "/keys", SessionTimeout: time.Minute}
+	if mutate != nil {
+		mutate(&cfg)
+	}
+	srv, err := New(cfg, fstest.MapFS{"index.html": {Data: []byte("hi")}})
 	if err != nil {
 		t.Fatal(err)
 	}
