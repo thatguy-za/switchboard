@@ -3,11 +3,9 @@ services:
     image: ghcr.io/thatguy-za/switchboard:latest
     restart: unless-stopped
     ports:
-      - "${SWITCHBOARD_PORT:-8080}:8080"
+      - "3000:3000"
     environment:
-      SWITCHBOARD_PORT: "8080"
-      # Public URL of the instance; use https:// behind a reverse proxy so cookies are marked Secure.
-      SWITCHBOARD_BASE_URL: "${SWITCHBOARD_BASE_URL:-http://localhost:8080}"
+      SWITCHBOARD_PORT: "3000"
       SWITCHBOARD_SESSION_TIMEOUT: "${SWITCHBOARD_SESSION_TIMEOUT:-30m}"
       SWITCHBOARD_GUACD: guacd:4822
     volumes:

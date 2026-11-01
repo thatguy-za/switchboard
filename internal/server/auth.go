@@ -43,9 +43,9 @@ type credentials struct {
 	Password string `json:"password"`
 }
 
-func (s *Server) startSession(w http.ResponseWriter, u *store.User, vk []byte) {
-	s.setCookie(w, cookiePending, "", -1)
-	s.setCookie(w, cookieSession, s.sess.create(u.ID, vk), 0)
+func (s *Server) startSession(w http.ResponseWriter, r *http.Request, u *store.User, vk []byte) {
+	s.setCookie(w, r, cookiePending, "", -1)
+	s.setCookie(w, r, cookieSession, s.sess.create(u.ID, vk), 0)
 }
 
 func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
@@ -70,7 +70,7 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		serverErr(w, err)
 		return
 	}
-	s.startSession(w, u, vk)
+	s.startSession(w, r, u, vk)
 	writeJSON(w, http.StatusOK, map[string]string{"recovery_key": recovery})
 }
 
@@ -116,12 +116,12 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if u.TOTPEnabled {
-		s.setCookie(w, cookiePending, s.sess.addPending(u.ID, vk), int(pendingTTL.Seconds()))
+		s.setCookie(w, r, cookiePending, s.sess.addPending(u.ID, vk), int(pendingTTL.Seconds()))
 		writeJSON(w, http.StatusOK, map[string]bool{"need_2fa": true})
 		return
 	}
 	s.db.ResetFailures(u.ID)
-	s.startSession(w, u, vk)
+	s.startSession(w, r, u, vk)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
@@ -167,20 +167,20 @@ func (s *Server) handleLogin2FA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.db.ResetFailures(u.ID)
-	s.setCookie(w, cookiePending, "", -1)
-	s.setCookie(w, cookieSession, token, 0)
+	s.setCookie(w, r, cookiePending, "", -1)
+	s.setCookie(w, r, cookieSession, token, 0)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-func (s *Server) handleLogout(w http.ResponseWriter, _ *http.Request, a *authed) {
+func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request, a *authed) {
 	s.sess.remove(a.token)
-	s.setCookie(w, cookieSession, "", -1)
+	s.setCookie(w, r, cookieSession, "", -1)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-func (s *Server) handleLogoutAll(w http.ResponseWriter, _ *http.Request, a *authed) {
+func (s *Server) handleLogoutAll(w http.ResponseWriter, r *http.Request, a *authed) {
 	s.sess.removeUser(a.user.ID, "")
-	s.setCookie(w, cookieSession, "", -1)
+	s.setCookie(w, r, cookieSession, "", -1)
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 

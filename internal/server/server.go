@@ -28,8 +28,9 @@ const (
 var usernameRe = regexp.MustCompile(`^[a-zA-Z0-9._-]{2,32}$`)
 
 type Config struct {
-	DataDir, KeysDir, BaseURL string
-	SessionTimeout            time.Duration
+	DataDir, KeysDir string
+	Port             int // the web port; local forwards may not listen on it
+	SessionTimeout   time.Duration
 }
 
 type Server struct {
@@ -168,10 +169,13 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	return true
 }
 
-func (s *Server) setCookie(w http.ResponseWriter, name, value string, maxAge int) {
+// setCookie marks cookies Secure when the request came in over TLS, directly
+// or through a reverse proxy that says so.
+func (s *Server) setCookie(w http.ResponseWriter, r *http.Request, name, value string, maxAge int) {
+	secure := r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
 	http.SetCookie(w, &http.Cookie{
 		Name: name, Value: value, Path: "/", MaxAge: maxAge, HttpOnly: true,
-		SameSite: http.SameSiteStrictMode, Secure: strings.HasPrefix(s.cfg.BaseURL, "https://"),
+		SameSite: http.SameSiteStrictMode, Secure: secure,
 	})
 }
 

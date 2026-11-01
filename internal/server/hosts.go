@@ -18,23 +18,37 @@ type folderView struct {
 }
 
 type hostView struct {
-	ID          string `json:"id"`
-	FolderID    string `json:"folder_id"`
-	Name        string `json:"name"`
-	Address     string `json:"address"`
-	Port        int    `json:"port"`
-	Username    string `json:"username"`
-	Auth        string `json:"auth"`
-	IdentityID  string `json:"identity_id"`
-	HasPassword bool   `json:"has_password"`
-	Protocol    string `json:"protocol"`
-	Theme       string `json:"theme"`
+	ID          string        `json:"id"`
+	FolderID    string        `json:"folder_id"`
+	Name        string        `json:"name"`
+	Address     string        `json:"address"`
+	Port        int           `json:"port"`
+	Username    string        `json:"username"`
+	Auth        string        `json:"auth"`
+	IdentityID  string        `json:"identity_id"`
+	HasPassword bool          `json:"has_password"`
+	Protocol    string        `json:"protocol"`
+	Theme       string        `json:"theme"`
+	Jumps       []string      `json:"jumps"`
+	Forwards    []forwardView `json:"forwards"`
 }
 
-func toHostView(h *store.Host) hostView {
-	return hostView{ID: h.ID, FolderID: h.FolderID, Name: h.Name, Address: h.Address, Port: h.Port,
+type forwardView struct {
+	Kind     string `json:"kind"`
+	BindPort int    `json:"bind_port"`
+	DestHost string `json:"dest_host"`
+	DestPort int    `json:"dest_port"`
+}
+
+func toHostView(h *store.Host, jumps []string, forwards []store.Forward) hostView {
+	v := hostView{ID: h.ID, FolderID: h.FolderID, Name: h.Name, Address: h.Address, Port: h.Port,
 		Username: h.Username, Auth: h.Auth, IdentityID: h.IdentityID, HasPassword: h.PasswordBlob != nil,
-		Protocol: h.Protocol, Theme: h.Theme}
+		Protocol: h.Protocol, Theme: h.Theme, Jumps: []string{}, Forwards: []forwardView{}}
+	v.Jumps = append(v.Jumps, jumps...)
+	for _, f := range forwards {
+		v.Forwards = append(v.Forwards, forwardView{f.Kind, f.BindPort, f.DestHost, f.DestPort})
+	}
+	return v
 }
 
 func (s *Server) handleListHosts(w http.ResponseWriter, _ *http.Request, a *authed) {
@@ -55,8 +69,18 @@ func (s *Server) handleListHosts(w http.ResponseWriter, _ *http.Request, a *auth
 	for _, f := range folders {
 		out.Folders = append(out.Folders, folderView{f.ID, f.ParentID, f.Name})
 	}
+	jumps, err := s.db.JumpsByHost(a.user.ID)
+	if err != nil {
+		serverErr(w, err)
+		return
+	}
+	forwards, err := s.db.ForwardsByHost(a.user.ID)
+	if err != nil {
+		serverErr(w, err)
+		return
+	}
 	for _, h := range hosts {
-		out.Hosts = append(out.Hosts, toHostView(h))
+		out.Hosts = append(out.Hosts, toHostView(h, jumps[h.ID], forwards[h.ID]))
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -140,15 +164,60 @@ func (s *Server) handleDeleteFolder(w http.ResponseWriter, r *http.Request, a *a
 /* hosts */
 
 type hostInput struct {
-	Name       string  `json:"name"`
-	FolderID   string  `json:"folder_id"`
-	Address    string  `json:"address"`
-	Port       int     `json:"port"`
-	Username   string  `json:"username"`
-	Auth       string  `json:"auth"`
-	IdentityID string  `json:"identity_id"`
-	Password   *string `json:"password"` // nil keeps the stored password, "" clears it
-	Theme      string  `json:"theme"`
+	Name       string        `json:"name"`
+	FolderID   string        `json:"folder_id"`
+	Address    string        `json:"address"`
+	Port       int           `json:"port"`
+	Username   string        `json:"username"`
+	Auth       string        `json:"auth"`
+	IdentityID string        `json:"identity_id"`
+	Password   *string       `json:"password"` // nil keeps the stored password, "" clears it
+	Theme      string        `json:"theme"`
+	Jumps      []string      `json:"jumps"`
+	Forwards   []forwardView `json:"forwards"`
+}
+
+const (
+	maxJumps    = 5
+	maxForwards = 20
+)
+
+// chainInput validates jump hosts and forwards for host h.
+func (s *Server) chainInput(h *store.Host, in *hostInput, a *authed) ([]string, []store.Forward, bool) {
+	if len(in.Jumps) > maxJumps || len(in.Forwards) > maxForwards {
+		return nil, nil, false
+	}
+	seen := map[string]bool{}
+	for _, id := range in.Jumps {
+		if id == "" || id == h.ID || seen[id] {
+			return nil, nil, false
+		}
+		seen[id] = true
+		if _, err := s.db.GetHost(id, a.user.ID); err != nil {
+			return nil, nil, false
+		}
+	}
+	var fs []store.Forward
+	local := map[int]bool{}
+	for _, f := range in.Forwards {
+		f.DestHost = strings.TrimSpace(f.DestHost)
+		switch {
+		case f.Kind != "local" && f.Kind != "remote",
+			f.DestHost == "" || len(f.DestHost) > 255 || strings.ContainsAny(f.DestHost, " \t/"),
+			f.DestPort < 1 || f.DestPort > 65535,
+			f.BindPort < 1 || f.BindPort > 65535:
+			return nil, nil, false
+		}
+		if f.Kind == "local" {
+			// Unprivileged ports only, never the web port, and no duplicates.
+			if f.BindPort < 1024 || f.BindPort == s.cfg.Port || local[f.BindPort] {
+				return nil, nil, false
+			}
+			local[f.BindPort] = true
+		}
+		fs = append(fs, store.Forward{Kind: f.Kind, BindPort: f.BindPort, DestHost: f.DestHost, DestPort: f.DestPort})
+	}
+	return in.Jumps, fs, true
 }
 
 // applyHostInput validates in and copies it onto h, sealing any new password
@@ -204,11 +273,20 @@ func (s *Server) handleCreateHost(w http.ResponseWriter, r *http.Request, a *aut
 		apiErr(w, http.StatusBadRequest, code)
 		return
 	}
+	jumps, forwards, ok := s.chainInput(h, &in, a)
+	if !ok {
+		apiErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
 	if err := s.db.CreateHost(h); err != nil {
 		serverErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toHostView(h))
+	if err := s.saveChain(h.ID, jumps, forwards); err != nil {
+		serverErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toHostView(h, jumps, forwards))
 }
 
 func (s *Server) handleUpdateHost(w http.ResponseWriter, r *http.Request, a *authed) {
@@ -225,11 +303,20 @@ func (s *Server) handleUpdateHost(w http.ResponseWriter, r *http.Request, a *aut
 		apiErr(w, http.StatusBadRequest, code)
 		return
 	}
+	jumps, forwards, ok := s.chainInput(h, &in, a)
+	if !ok {
+		apiErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
 	if err := s.db.UpdateHost(h); err != nil {
 		serverErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toHostView(h))
+	if err := s.saveChain(h.ID, jumps, forwards); err != nil {
+		serverErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, toHostView(h, jumps, forwards))
 }
 
 func (s *Server) handleDeleteHost(w http.ResponseWriter, r *http.Request, a *authed) {
@@ -242,4 +329,11 @@ func (s *Server) handleDeleteHost(w http.ResponseWriter, r *http.Request, a *aut
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+func (s *Server) saveChain(hostID string, jumps []string, forwards []store.Forward) error {
+	if err := s.db.SetJumps(hostID, jumps); err != nil {
+		return err
+	}
+	return s.db.SetForwards(hostID, forwards)
 }

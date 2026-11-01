@@ -293,7 +293,7 @@ function showView(name) {
   shell.querySelectorAll('#nav [data-view]').forEach(b => {
     b.setAttribute('aria-current', b.dataset.view === name ? 'page' : 'false');
   });
-  if (name === 'terminals') requestAnimationFrame(() => { fitActive(); if (WS.active) WS.active.term.focus(); });
+  if (name === 'terminals') requestAnimationFrame(() => { fitActive(); if (WS.active) WS.active.active.term.focus(); });
 }
 
 function updateNav() {

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/thatguy-za/switchboard/internal/server"
@@ -26,7 +27,7 @@ func main() {
 	healthcheck := flag.Bool("healthcheck", false, "probe /healthz and exit")
 	flag.Parse()
 
-	addr := ":" + env("SWITCHBOARD_PORT", "8080")
+	addr := ":" + env("SWITCHBOARD_PORT", "3000")
 
 	if *healthcheck {
 		c := http.Client{Timeout: 3 * time.Second}
@@ -45,10 +46,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	port, err := strconv.Atoi(env("SWITCHBOARD_PORT", "3000"))
+	if err != nil {
+		log.Fatalf("SWITCHBOARD_PORT: %v", err)
+	}
 	srv, err := server.New(server.Config{
 		DataDir:        env("SWITCHBOARD_DATA_DIR", "/data"),
 		KeysDir:        env("SWITCHBOARD_KEYS_DIR", "/keys"),
-		BaseURL:        env("SWITCHBOARD_BASE_URL", "http://localhost:8080"),
+		Port:           port,
 		SessionTimeout: timeout,
 	}, web)
 	if err != nil {

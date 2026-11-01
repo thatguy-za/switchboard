@@ -13,8 +13,8 @@ FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/switchboard /switchboard
 COPY --from=build --chown=65532:65532 /out/data /data
 COPY --from=build --chown=65532:65532 /out/keys /keys
-ENV SWITCHBOARD_PORT=8080
-EXPOSE 8080
+ENV SWITCHBOARD_PORT=3000
+EXPOSE 3000
 VOLUME ["/data", "/keys"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD ["/switchboard", "-healthcheck"]

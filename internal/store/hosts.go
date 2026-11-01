@@ -212,3 +212,115 @@ func (s *Store) SetKnownHost(hostID, keyType, fingerprint string) error {
 		hostID, keyType, fingerprint)
 	return err
 }
+
+/* jump hosts and port forwards */
+
+type Forward struct {
+	Kind     string
+	BindPort int
+	DestHost string
+	DestPort int
+}
+
+// JumpsByHost returns every jump chain a user has, keyed by host ID, in hop order.
+func (s *Store) JumpsByHost(userID string) (map[string][]string, error) {
+	rows, err := s.db.Query(`SELECT j.host_id, j.jump_id FROM host_jumps j
+		JOIN hosts h ON h.id = j.host_id WHERE h.user_id=? ORDER BY j.host_id, j.position`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]string{}
+	for rows.Next() {
+		var host, jump string
+		if err := rows.Scan(&host, &jump); err != nil {
+			return nil, err
+		}
+		out[host] = append(out[host], jump)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) SetJumps(hostID string, ids []string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM host_jumps WHERE host_id=?`, hostID); err != nil {
+		return err
+	}
+	for i, id := range ids {
+		if _, err := tx.Exec(`INSERT INTO host_jumps (host_id, position, jump_id) VALUES (?,?,?)`, hostID, i, id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *Store) ForwardsByHost(userID string) (map[string][]Forward, error) {
+	rows, err := s.db.Query(`SELECT f.host_id, f.kind, f.bind_port, f.dest_host, f.dest_port FROM host_forwards f
+		JOIN hosts h ON h.id = f.host_id WHERE h.user_id=? ORDER BY f.host_id, f.position`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]Forward{}
+	for rows.Next() {
+		var host string
+		var f Forward
+		if err := rows.Scan(&host, &f.Kind, &f.BindPort, &f.DestHost, &f.DestPort); err != nil {
+			return nil, err
+		}
+		out[host] = append(out[host], f)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) SetForwards(hostID string, fs []Forward) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`DELETE FROM host_forwards WHERE host_id=?`, hostID); err != nil {
+		return err
+	}
+	for i, f := range fs {
+		if _, err := tx.Exec(`INSERT INTO host_forwards (host_id, position, kind, bind_port, dest_host, dest_port)
+			VALUES (?,?,?,?,?,?)`, hostID, i, f.Kind, f.BindPort, f.DestHost, f.DestPort); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// ChainFor returns a host's jump host IDs and forwards, for a connection.
+func (s *Store) ChainFor(hostID string) (jumps []string, forwards []Forward, err error) {
+	rows, err := s.db.Query(`SELECT jump_id FROM host_jumps WHERE host_id=? ORDER BY position`, hostID)
+	if err != nil {
+		return nil, nil, err
+	}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return nil, nil, err
+		}
+		jumps = append(jumps, id)
+	}
+	rows.Close()
+	frows, err := s.db.Query(`SELECT kind, bind_port, dest_host, dest_port FROM host_forwards WHERE host_id=? ORDER BY position`, hostID)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer frows.Close()
+	for frows.Next() {
+		var f Forward
+		if err := frows.Scan(&f.Kind, &f.BindPort, &f.DestHost, &f.DestPort); err != nil {
+			return nil, nil, err
+		}
+		forwards = append(forwards, f)
+	}
+	return jumps, forwards, frows.Err()
+}
