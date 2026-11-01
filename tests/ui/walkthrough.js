@@ -152,6 +152,16 @@ const dlg = () => page.locator('dialog[open]');
     if (await page.locator('#tson').isChecked()) throw new Error('the switch turned on without a key');
   });
 
+  await step('pane overlays close with an x', async () => {
+    await page.click('.row.host:has-text("pi-hole")');
+    await page.waitForSelector('.tab.on .dot.live', { timeout: 15000 });
+    await page.evaluate(() => { const s = WS.active.active; showOverlay(s, { title: 'Session ended', buttons: [{ label: 'Reconnect', cls: 'primary', fn() {} }, closeButton(s)] }); });
+    if (await page.locator('.tbox button:has-text("Close pane")').count()) throw new Error('a Close pane button is still there');
+    await snap('49-overlay-x');
+    const before = await page.locator('#tabs .tab').count();
+    await page.locator('.tbox [data-close]:visible').click();
+    await page.waitForFunction(n => document.querySelectorAll('#tabs .tab').length < n, before);
+  });
   await step('closing the last pane shows the home page', async () => {
     await page.click('.row.host:has-text("pi-hole")');
     await page.waitForSelector('.tab.on .dot.live', { timeout: 15000 });

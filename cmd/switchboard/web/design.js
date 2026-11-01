@@ -117,7 +117,7 @@ const COMPONENTS = [
       <p class="small muted">Text copied on the remote desktop shows up here.</p><textarea rows="3"></textarea>
       <div class="actions">${button('Send to remote', { kind: 'primary sm' })}${button('Copy', { kind: 'sm', icon: 'copy' })}</div></div></div>` },
   { id: 'overlay-box', name: 'Pane overlay', description: 'Says what a pane is doing, or asks a question before it continues.',
-    render: () => `<div class="stage flush"><div class="tover"><div class="tbox danger"><div class="title">${icon('alert-triangle')}The host key for pi-hole has changed</div>
+    render: () => `<div class="stage flush"><div class="tover"><div class="tbox danger"><div class="title">${icon('alert-triangle')}The host key for pi-hole has changed</div>${iconButton('x', 'Close pane', '', 'sm')}
       <div class="text">Someone may be intercepting this connection, or the server was reinstalled.<span class="fp-label">Saved</span><code class="fp">SHA256:Z7JhYC7mEL0hweX4QShWW8HB4MXMQ26IyP6Ql9x52a8</code></div>
       <div class="actions">${button('Disconnect', { kind: 'primary' })}${button('Accept new key', { kind: 'danger' })}</div></div></div></div>` },
   { id: 'tabs', name: 'Tabs', description: 'Open sessions. The active tab joins the terminal beneath it.',

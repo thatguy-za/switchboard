@@ -168,10 +168,11 @@ dialog.palette { width: min(var(--w-palette), calc(100% - var(--s-12))); margin:
 
 /* @component overlay-box */
 .tover { position: absolute; inset: 0; z-index: var(--z-overlay); display: flex; align-items: center; justify-content: center; padding: var(--s-10); background: color-mix(in srgb, var(--surface-term) 78%, transparent); animation: fade var(--dur-base) ease; }
-.tbox { width: min(var(--w-dialog), 100%); display: grid; gap: var(--s-5); padding: var(--s-9) var(--s-10); background: var(--surface-raised); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); }
+.tbox { position: relative; width: min(var(--w-dialog), 100%); display: grid; gap: var(--s-5); padding: var(--s-9) var(--s-10); background: var(--surface-raised); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); }
 .tbox.danger { border-color: color-mix(in srgb, var(--danger) 50%, var(--line-strong)); }
-.tbox .title { font-size: var(--fs-md); font-weight: var(--fw-semibold); display: flex; align-items: center; gap: var(--s-4); }
+.tbox .title { padding-right: var(--s-12); font-size: var(--fs-md); font-weight: var(--fw-semibold); display: flex; align-items: center; gap: var(--s-4); }
 .tbox.danger .title .ic { color: var(--danger); }
+.tbox > button.icon { position: absolute; top: var(--s-4); right: var(--s-4); }
 .tbox .text { color: var(--text-2); overflow-wrap: anywhere; }
 .tbox .actions { display: flex; gap: var(--s-4); margin-top: var(--s-2); }
 .tbox .fp-label { display: block; margin-top: var(--s-5); font-size: var(--fs-2xs); font-weight: var(--fw-medium); color: var(--text-3); }

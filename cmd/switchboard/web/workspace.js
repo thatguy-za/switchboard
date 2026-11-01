@@ -466,6 +466,12 @@ function showOverlay(sess, { title, text = '', tone = '', buttons = [] }) {
   o.innerHTML = `<div class="tbox ${tone}"><div class="title">${tone === 'danger' ? icon('alert-triangle') : ''}${title}</div>${text ? `<div class="text">${text}</div>` : ''}<div class="actions"></div></div>`;
   const actions = o.querySelector('.actions');
   for (const b of buttons) {
+    if (b.close) {
+      // Closing the pane is the x in the corner, not one of the choices.
+      o.querySelector('.tbox').insertAdjacentHTML('beforeend', iconButton('x', 'Close pane', 'data-close', 'sm'));
+      o.querySelector('[data-close]').addEventListener('click', b.fn);
+      continue;
+    }
     const e = document.createElement('button');
     e.textContent = b.label;
     if (b.cls) e.className = b.cls;
@@ -477,7 +483,7 @@ function showOverlay(sess, { title, text = '', tone = '', buttons = [] }) {
 }
 
 function hideOverlay(sess) { sess.overlay.hidden = true; sess.overlay.innerHTML = ''; }
-function closeButton(sess) { return { label: 'Close pane', cls: 'quiet', fn: () => closeSession(sess) }; }
+function closeButton(sess) { return { close: true, fn: () => closeSession(sess) }; }
 
 function setState(sess, state) {
   sess.state = state;
