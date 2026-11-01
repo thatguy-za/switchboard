@@ -65,6 +65,25 @@ Each terminal tab can be split right or down into up to six panes, each its own 
 
 xterm.js 5.5.0, its fit addon and guacamole-common-js 1.5.0 (Apache-2.0, license kept beside it) are vendored in `cmd/switchboard/web/vendor`, so the page loads nothing from a CDN.
 
+## Tailscale
+
+Switchboard can join your tailnet itself, with nothing extra to run. Open **Settings → Server → Tailscale**
+as an admin, turn it on and paste an auth key (create one in the Tailscale admin console under
+Settings → Keys). The key is used once to join and is never stored; the device's identity is kept in
+`/data/tailscale`, so it rejoins by itself after a restart.
+
+- **Reaching hosts:** an SSH or RDP host whose address is a Tailscale IP (`100.x.y.z`) or a `*.ts.net`
+  name is reached over the tailnet. A single-word name is tried on the tailnet first and then directly.
+  Everything else connects directly, as before.
+- **Opening Switchboard from the tailnet:** with *Open the web UI on the tailnet* on, the page is also
+  served on port 3000 of the device name you chose, for example `http://switchboard:3000`, from any
+  device on your tailnet. Port 3000 on the host keeps working either way.
+- **Removing it:** *Remove from tailnet* logs the device out and forgets it. If the device is offline when
+  you do this, delete it in the Tailscale admin console too.
+
+RDP goes through a small loopback relay inside the container, because guacd can't use the embedded node.
+Network Level Authentication works with it, but not Kerberos. Tailscale SSH and exit nodes aren't supported.
+
 ## HTTPS and reverse proxies
 
 Switchboard speaks plain HTTP on port 3000. To use it over HTTPS (needed to install it as an app and for

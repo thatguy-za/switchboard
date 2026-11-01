@@ -38,8 +38,8 @@ const segmented = (label, options, value, attr) =>
     `<button type="button" ${attr}="${esc(id)}" aria-pressed="${id === value}">${ic ? icon(ic) : ''}${esc(text)}</button>`).join('')}</div>`;
 const switchControl = ({ id, checked = false, disabled = false, label }) =>
   `<label class="switch"><input type="checkbox" id="${esc(id)}" ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''} aria-label="${esc(label)}"><span></span></label>`;
-const checkField = (name, label, hint = '', attrs = '') =>
-  `<label class="check" ${attrs}><input type="checkbox" name="${esc(name)}"> ${label}${hint ? `<span class="small">${hint}</span>` : ''}</label>`;
+const checkField = (name, label, hint = '', attrs = '', checked = false) =>
+  `<label class="check" ${attrs}><input type="checkbox" name="${esc(name)}"${checked ? ' checked' : ''}> ${label}${hint ? `<span class="small">${hint}</span>` : ''}</label>`;
 const hostRow = (h, { depth = 0, live = false, kebab = true } = {}) => `
   <div class="row host d${Math.min(depth, 6)}" tabindex="0" role="button" data-host="${esc(h.id)}" aria-label="Open ${esc(h.name)}">
     ${icon(h.protocol === 'rdp' ? 'device-desktop' : 'terminal-2')}<span class="name">${esc(h.name)}</span>${live ? '<span class="dot live" title="Connected"></span>' : ''}

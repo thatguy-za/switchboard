@@ -76,6 +76,7 @@ func (t *termSize) get() (int, int) {
 type hopError struct {
 	hop       *store.Host
 	unreached bool
+	hint      string
 	err       error
 }
 
@@ -83,7 +84,7 @@ func (e *hopError) Error() string { return e.err.Error() }
 
 func (e *hopError) message() string {
 	if e.unreached {
-		return "could not reach " + net.JoinHostPort(e.hop.Address, strconv.Itoa(e.hop.Port)) + "."
+		return "could not reach " + net.JoinHostPort(e.hop.Address, strconv.Itoa(e.hop.Port)) + "." + e.hint
 	}
 	return describeSSHError(e.err)
 }
@@ -299,6 +300,7 @@ func (s *Server) connectHost(ctx context.Context, host *store.Host, a *authed, s
 		var de *dialError
 		if errors.As(err, &de) {
 			he.unreached = true
+			he.hint = s.tailnetHint(host.Address)
 		}
 		return nil, nil, he
 	}
@@ -321,8 +323,7 @@ func (s *Server) dialHost(ctx context.Context, hop *store.Host, a *authed, send 
 	defer wipe()
 
 	addr := net.JoinHostPort(hop.Address, strconv.Itoa(hop.Port))
-	d := net.Dialer{Timeout: 15 * time.Second}
-	conn, err := d.DialContext(ctx, "tcp", addr)
+	conn, _, err := s.dialTCP(ctx, hop.Address, hop.Port, 15*time.Second)
 	if err != nil {
 		return nil, &dialError{err}
 	}

@@ -141,6 +141,10 @@ func (s *Server) handleRDP(w http.ResponseWriter, r *http.Request, a *authed) {
 
 	params, cleanup := s.rdpParams(host, a)
 	defer cleanup()
+	if rh, rp, stopRelay := s.tailnetRelay(ctx, host); rh != "" {
+		params["hostname"], params["port"] = rh, rp
+		defer stopRelay()
+	}
 
 	d := net.Dialer{Timeout: 5 * time.Second}
 	gc, err := d.DialContext(ctx, "tcp", s.cfg.Guacd)

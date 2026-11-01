@@ -283,6 +283,62 @@ function addUserDialog() {
   });
 }
 
+/* ---------- Tailscale (Settings → Server) ---------- */
+
+let tsTimer = null;
+
+async function renderTailscale(host) {
+  clearTimeout(tsTimer);
+  let t;
+  try { t = await api('GET', '/admin/tailscale'); } catch (e) { host.innerHTML = notice('alert-triangle', esc(e.message)); return; }
+  if (!host.isConnected || settingsTab !== 'server') return;
+  const up = t.state === 'connected';
+  const status = {
+    off: tag('Off'), needs_key: tag('Needs a key', 'warn'), starting: tag('Connecting…'),
+    connected: tag('Connected', 'acc'), error: tag('Problem', 'warn'),
+  }[t.state] || '';
+  const where = up ? `${t.name ? `<code>${esc(t.name)}</code> · ` : ''}${esc((t.ips || []).join(', '))}` : '';
+  const url = up && t.serve_ui ? `<div>Web UI: <code>http://${esc(t.hostname)}:${t.port}</code> from any device on your tailnet</div>` : '';
+  const problem = t.error ? `<div class="err">${esc(t.error)}</div>` : '';
+  const configure = () => tailscaleDialog(t, () => renderTailscale(host));
+  host.innerHTML = panel(
+    settingRow(`Tailscale ${status}`, `Reach SSH and RDP hosts by their tailnet address or name, and optionally open Switchboard from your tailnet.${where ? `<div>${where}</div>` : ''}${url}${problem}`,
+      `${button('Settings', { icon: 'settings', attrs: 'id="tsedit"' })}${switchControl({ id: 'tson', checked: t.enabled, label: 'Use Tailscale' })}`) +
+    (t.has_state ? settingRow('Remove from tailnet', 'Log this device out of Tailscale and forget it. You will need a new auth key to join again.',
+      button('Remove', { kind: 'danger', attrs: 'id="tsrm"' })) : ''));
+  $('#tsedit', host).addEventListener('click', configure);
+  $('#tson', host).addEventListener('change', async ev => {
+    if (ev.target.checked && !t.has_state) { ev.target.checked = false; configure(); return; }
+    try {
+      await api('POST', '/admin/tailscale', { enabled: ev.target.checked, hostname: t.hostname, serve_ui: t.serve_ui });
+    } catch (e) { toast(e.message, 'err'); }
+    renderTailscale(host);
+  });
+  const rm = $('#tsrm', host);
+  if (rm) rm.addEventListener('click', () => confirmDialog('Remove from tailnet?', 'This device is logged out of Tailscale and forgotten. Hosts reached over the tailnet stop working until you join again.', 'Remove', async () => {
+    await api('POST', '/admin/tailscale/remove');
+    toast('Removed from the tailnet');
+    renderTailscale(host);
+  }));
+  if (t.state === 'starting') tsTimer = setTimeout(() => renderTailscale(host), 2000);
+}
+
+function tailscaleDialog(t, done) {
+  dialog('Tailscale', `
+    <label>Device name<input type="text" name="hostname" value="${esc(t.hostname)}" maxlength="63" pattern="[a-z0-9]([a-z0-9\\-]*[a-z0-9])?" autocapitalize="off" required></label>
+    <label>Auth key<input type="password" name="auth_key" autocomplete="off" ${t.has_state ? '' : 'required'}
+      placeholder="${t.has_state ? 'Only needed to join again' : 'tskey-auth-…'}"></label>
+    ${checkField('serve_ui', 'Open the web UI on the tailnet', `Serves this page on port ${t.port} of the device name above. Anyone on your tailnet who can reach it can sign in.`, '', t.serve_ui)}`, {
+    description: 'Create an auth key in the Tailscale admin console under Settings → Keys. It is used once to join and is not stored.',
+    submitLabel: t.enabled ? 'Save' : 'Connect',
+    onSubmit: async fd => {
+      await api('POST', '/admin/tailscale', { enabled: true, hostname: fd.get('hostname'), serve_ui: fd.get('serve_ui') !== null, auth_key: fd.get('auth_key') });
+      toast('Tailscale is connecting');
+      done();
+    },
+  });
+}
+
 /* ---------- the application shell ---------- */
 
 async function signOut() {
@@ -469,6 +525,7 @@ async function renderSettingsBody() {
       ${panel(
         settingRow('Master key', 'Generated when Switchboard first started. Every stored secret is encrypted with it.', button('Download key', { kind: 'primary', icon: 'download', attrs: 'id="key"' })) +
         settingRow('Backup confirmed', 'Turn this on once the key is stored safely. It clears the reminder.', switchControl({ id: 'keydone', checked: !state.key_backup_pending, disabled: !state.key_backup_pending, label: 'Backup confirmed' })))}
+      <div id="ts"></div>
     </div>`;
     bind('#key', () => passwordDialog('Download the master key', 'Enter your password to download it.', 'Download', async password => {
       const r = await api('POST', '/admin/master-key', { password });
@@ -486,6 +543,7 @@ async function renderSettingsBody() {
       renderSettingsBody();
       toast('Marked as backed up');
     });
+    renderTailscale($('#ts', body));
   }
 }
 

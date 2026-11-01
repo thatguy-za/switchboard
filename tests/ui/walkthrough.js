@@ -139,6 +139,18 @@ const dlg = () => page.locator('dialog[open]');
     await dlg().locator('[data-cancel]').first().click();
   });
   await step('settings server', async () => { await nav('server'); await snap('24-settings-server'); });
+  await step('tailscale dialog', async () => {
+    await page.waitForSelector('#tsedit');
+    await page.click('#tsedit');
+    await dlg().waitFor();
+    await snap('24b-tailscale-dialog');
+    await dlg().locator('[data-cancel]').first().click();
+    // Turning it on without having joined before asks for an auth key instead of switching on.
+    await page.locator('label.switch:has(#tson)').click();
+    await dlg().waitFor();
+    await dlg().locator('[data-cancel]').first().click();
+    if (await page.locator('#tson').isChecked()) throw new Error('the switch turned on without a key');
+  });
 
   await step('light theme', async () => {
     await nav('appearance');
