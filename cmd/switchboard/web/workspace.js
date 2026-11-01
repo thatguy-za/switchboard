@@ -219,6 +219,7 @@ function hostDialog(host) {
     <label data-for="password">Password<input type="password" name="password" autocomplete="new-password"
       placeholder="${h.has_password ? 'Saved. Leave blank to keep it.' : ''}"></label>
     <label data-for="key">Identity<select name="identity_id">${idOpts}</select></label>
+    ${h.has_password ? '<label class="check"><input type="checkbox" name="forget"> Forget the saved password</label>' : ''}
     <label>Terminal colours<select name="theme">${themeOpts}</select></label>
     <details id="jsec"${jumps.length ? ' open' : ''}><summary>Jump hosts</summary>
       <p class="muted small">Connect through these hosts first, in order. Each one signs in with its own saved credentials.</p>
@@ -242,6 +243,7 @@ function hostDialog(host) {
       };
       if (body.auth === 'key' && !body.identity_id) throw new Error('Choose an identity, or create one in the Identities tab.');
       if (body.auth === 'password' && (fd.get('password') || !host)) body.password = fd.get('password');
+      if (fd.get('forget') && !fd.get('password')) body.password = '';
       for (const f of body.forwards) {
         if (!f.bind_port || !f.dest_host || !f.dest_port) throw new Error('Fill in every port forward, or remove the empty ones.');
         if (f.kind === 'local' && f.bind_port < 1024) throw new Error('Local forwards need a port of 1024 or higher.');
@@ -762,13 +764,14 @@ function renderIdentities() {
     <tr><td>${esc(i.name)}<div class="muted small">${esc(i.comment)}</div></td>
       <td>${i.kind === 'rsa' ? 'RSA-4096' : 'Ed25519'}</td>
       <td class="mono small">${esc(i.fingerprint)}</td>
-      <td class="small">${i.hosts.length ? esc(i.hosts.join(', ')) : '<span class="muted">No hosts</span>'}</td>
-      <td class="r"><button data-pub="${esc(i.id)}">Copy public key</button>
+      <td class="small">${i.deployed.length ? esc(i.deployed.join(', ')) : '<span class="muted">Not pushed</span>'}</td>
+      <td class="r"><button class="primary" data-push="${esc(i.id)}">Push to hosts\u2026</button>
+        <button data-pub="${esc(i.id)}">Copy public key</button>
         <button data-export="${esc(i.id)}">Export</button>
         <button class="danger" data-delid="${esc(i.id)}">Delete</button></td></tr>`).join('');
   WS.ids.innerHTML = `<main><section><h2>Identities</h2>
     <p class="muted">SSH key pairs. Private keys are encrypted in your vault and never sent to the browser unless you export one.</p>
-    ${WS.identities.length ? `<div class="scroll"><table><thead><tr><th>Name</th><th>Type</th><th>Fingerprint</th><th>Used by</th><th></th></tr></thead>
+    ${WS.identities.length ? `<div class="scroll"><table><thead><tr><th>Name</th><th>Type</th><th>Fingerprint</th><th>Deployed to</th><th></th></tr></thead>
       <tbody>${rows}</tbody></table></div>` : '<p class="muted">No identities yet.</p>'}
     <div class="actions"><button class="primary" id="id-new">New identity</button><button id="id-import">Import key</button></div>
   </section></main>`;
@@ -782,15 +785,91 @@ function identityDefaults() {
 
 function newIdentityDialog() {
   const def = identityDefaults();
-  dialog('New identity', `
+  let created = null;
+  const d = dialog('New identity', `
     <label>Name<input type="text" name="name" value="${esc(def.name)}" required maxlength="80"></label>
     <label>Comment<input type="text" name="comment" value="${esc(def.comment)}" maxlength="120"></label>
     <label>Type<select name="kind"><option value="ed25519">Ed25519 (recommended)</option><option value="rsa">RSA-4096 (slow to generate)</option></select></label>`, {
     submitLabel: 'Generate',
     onSubmit: async fd => {
-      await api('POST', '/identities/generate', { name: fd.get('name'), comment: fd.get('comment'), kind: fd.get('kind') });
+      created = await api('POST', '/identities/generate', { name: fd.get('name'), comment: fd.get('comment'), kind: fd.get('kind') });
       await loadIdentities();
     },
+  });
+  // Next step: put the new key on the servers it is for.
+  d.addEventListener('close', () => { if (created) pushDialog(WS.identities.find(i => i.id === created.id) || created); });
+}
+
+function pushDialog(ident) {
+  if (!WS.hosts.length) {
+    dialog(`Push ${ident.name}`, '<p>Add a host first, then push this key to it from the Identities tab.</p>');
+    return;
+  }
+  const hosts = [...WS.hosts].sort((a, b) => folderPath(a.folder_id).localeCompare(folderPath(b.folder_id)) || byName(a, b));
+  const rows = hosts.map(h => {
+    const hint = [folderPath(h.folder_id), (h.username ? h.username + '@' : '') + h.address].filter(Boolean).join(' \u00b7 ');
+    return `<label class="check prow" data-id="${esc(h.id)}"><input type="checkbox" value="${esc(h.id)}">
+      <span class="pname2">${esc(h.name)}</span><span class="muted small">${esc(hint)}</span><span class="res small"></span></label>`;
+  }).join('');
+  const d = dialog(`Push "${ident.name}" to hosts`, `
+    <p class="muted small">Adds this key's public half to each host's <code>~/.ssh/authorized_keys</code>, checks that signing in with it works,
+      then makes the host use it. Each host signs in with its current credentials first, and its host key must already be trusted:
+      open it in a terminal once if you haven't.</p>
+    <input type="search" id="pq" placeholder="Filter hosts" autocomplete="off" aria-label="Filter hosts">
+    <label class="check"><input type="checkbox" id="pall"> Select all shown</label>
+    <div class="pushlist">${rows}</div>
+    <p class="muted small" id="psum"></p>`, {
+    extra: '<button type="button" class="primary" id="pgo">Push</button>',
+  });
+  d.classList.add('wide');
+  const list = d.querySelector('.pushlist');
+  const rowEls = [...list.querySelectorAll('.prow')];
+  const boxOf = r => r.querySelector('input');
+  const shown = () => rowEls.filter(r => !r.hidden);
+  const err = d.querySelector('.err');
+
+  d.querySelector('#pq').addEventListener('input', ev => {
+    const t = ev.target.value.trim().toLowerCase();
+    for (const r of rowEls) r.hidden = !!t && !r.textContent.toLowerCase().includes(t);
+  });
+  d.querySelector('#pq').addEventListener('keydown', ev => { if (ev.key === 'Enter') ev.preventDefault(); });
+  d.querySelector('#pall').addEventListener('change', ev => { for (const r of shown()) boxOf(r).checked = ev.target.checked; });
+
+  const show = (row, cls, text) => {
+    const res = row.querySelector('.res');
+    res.className = 'res small ' + cls;
+    res.textContent = text;
+  };
+  const go = d.querySelector('#pgo');
+  go.addEventListener('click', async () => {
+    const todo = rowEls.filter(r => boxOf(r).checked);
+    err.textContent = '';
+    if (!todo.length) { err.textContent = 'Choose at least one host.'; return; }
+    go.disabled = true;
+    d.querySelectorAll('input').forEach(i => { i.disabled = true; });
+    const tally = { added: 0, present: 0, failed: 0 };
+    let next = 0;
+    // Three hosts at a time; each one reports as it finishes.
+    await Promise.all(Array.from({ length: Math.min(3, todo.length) }, async () => {
+      while (next < todo.length) {
+        const row = todo[next++];
+        show(row, 'work', 'Pushing\u2026');
+        try {
+          const r = await api('POST', `/identities/${ident.id}/push`, { host_id: row.dataset.id });
+          if (r.result === 'error') { tally.failed++; show(row, 'bad', r.message); boxOf(row).dataset.failed = '1'; }
+          else if (r.result === 'present') { tally.present++; show(row, 'ok', 'Already there. Host now uses this key.'); boxOf(row).checked = false; }
+          else { tally.added++; show(row, 'ok', 'Key added and working.'); boxOf(row).checked = false; }
+        } catch (e) {
+          tally.failed++;
+          show(row, 'bad', e.message);
+        }
+      }
+    }));
+    d.querySelectorAll('input').forEach(i => { i.disabled = false; });
+    go.disabled = false;
+    go.textContent = tally.failed ? 'Retry failed' : 'Push';
+    d.querySelector('#psum').textContent = `${tally.added} added, ${tally.present} already there, ${tally.failed} failed.`;
+    await Promise.all([loadHosts(), loadIdentities()]);
   });
 }
 
@@ -835,6 +914,7 @@ function bindIdentities() {
     if (!t) return;
     if (t.id === 'id-new') return newIdentityDialog();
     if (t.id === 'id-import') return importIdentityDialog();
+    if (t.dataset.push) return pushDialog(WS.identities.find(i => i.id === t.dataset.push));
     if (t.dataset.pub) return copyText(WS.identities.find(i => i.id === t.dataset.pub).public_key, t);
     if (t.dataset.export) return exportIdentityDialog(t.dataset.export);
     if (t.dataset.delid) {

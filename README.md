@@ -18,6 +18,21 @@ server's key later changes, the tab blocks with a warning until you explicitly a
 Dropped connections reconnect automatically. Credentials are decrypted on the server at connect
 time and are never sent to the browser. Private keys leave only through an explicit, password-confirmed export.
 
+### Pushing keys
+
+On the Identities tab, **Push to hosts…** puts an identity's public key on any number of hosts
+(generating a new identity offers this straight away). For each host, Switchboard signs in with its
+current credentials, creates `~/.ssh` (700) and `authorized_keys` (600) if needed, adds the key unless
+it is already there, then signs in again with only the new key. Only if that works does the host switch
+to the identity. Each host reports its own result: added, already there, authentication failed,
+permission denied, unreachable, host key not trusted, or key added but login with it failed.
+
+- A pushed host's saved password is kept, so you can switch back; use *Forget the saved password* in
+  the host editor to remove it.
+- Pushes never prompt about host keys. Open a host in a terminal once and trust its key first.
+- Targets need a POSIX shell. Windows OpenSSH and network gear report that they aren't supported.
+- Removing a pushed key from servers isn't built yet: the key stays in `authorized_keys` until you remove it.
+
 ### Jump hosts, forwards and split panes
 
 A host can list jump hosts to connect through, in order. Each hop signs in with its own saved

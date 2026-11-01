@@ -324,3 +324,37 @@ func (s *Store) ChainFor(hostID string) (jumps []string, forwards []Forward, err
 	}
 	return jumps, forwards, frows.Err()
 }
+
+/* key push */
+
+// SetHostIdentity makes a host sign in with an identity. A saved password is kept.
+func (s *Store) SetHostIdentity(hostID, userID, identityID string) error {
+	_, err := s.db.Exec(`UPDATE hosts SET auth='key', identity_id=? WHERE id=? AND user_id=?`, identityID, hostID, userID)
+	return err
+}
+
+func (s *Store) RecordDeployment(identityID, hostID string) error {
+	_, err := s.db.Exec(`INSERT INTO identity_deployments (identity_id, host_id, deployed_at) VALUES (?,?,?)
+		ON CONFLICT(identity_id, host_id) DO UPDATE SET deployed_at=excluded.deployed_at`,
+		identityID, hostID, time.Now().Unix())
+	return err
+}
+
+// DeploymentsByIdentity maps each of a user's identities to the host IDs it was pushed to.
+func (s *Store) DeploymentsByIdentity(userID string) (map[string][]string, error) {
+	rows, err := s.db.Query(`SELECT d.identity_id, d.host_id FROM identity_deployments d
+		JOIN identities i ON i.id = d.identity_id WHERE i.user_id=? ORDER BY d.deployed_at`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]string{}
+	for rows.Next() {
+		var identity, host string
+		if err := rows.Scan(&identity, &host); err != nil {
+			return nil, err
+		}
+		out[identity] = append(out[identity], host)
+	}
+	return out, rows.Err()
+}

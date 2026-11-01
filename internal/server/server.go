@@ -113,6 +113,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/identities/import", s.auth(true, s.handleImportIdentity))
 	mux.HandleFunc("DELETE /api/identities/{id}", s.auth(true, s.handleDeleteIdentity))
 	mux.HandleFunc("POST /api/identities/{id}/export", s.auth(true, s.handleExportIdentity))
+	mux.HandleFunc("POST /api/identities/{id}/push", s.auth(true, s.handlePush))
 	mux.HandleFunc("GET /api/ws/ssh/{id}", s.auth(true, s.handleSSH))
 
 	mux.HandleFunc("GET /api/admin/users", s.admin(s.handleListUsers))

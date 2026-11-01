@@ -185,31 +185,12 @@ func (s *Server) handleSSH(w http.ResponseWriter, r *http.Request, a *authed) {
 
 	send(serverMsg{Type: "status", Message: "connecting"})
 
-	// Walk the chain: each hop is reached through the previous one.
-	var closers []func()
-	defer func() {
-		for i := len(closers) - 1; i >= 0; i-- {
-			closers[i]()
-		}
-	}()
-	var client *ssh.Client
-	for i, hop := range hops {
-		next, err := s.dialHop(ctx, hop, client, a, send, trustCh)
-		if err != nil {
-			he := &hopError{hop: hop, jump: i < len(hops)-1, err: err}
-			if i > 0 {
-				he.via = hops[i-1]
-			}
-			var de *dialError
-			if errors.As(err, &de) {
-				he.unreached = true
-			}
-			fail(he.message(), he.unreached)
-			return
-		}
-		closers = append(closers, func() { next.Close() })
-		client = next
+	client, closeAll, he := s.connectChain(ctx, hops, a, send, trustCh, nil)
+	if he != nil {
+		fail(he.message(), he.unreached)
+		return
 	}
+	defer closeAll()
 
 	sess, err := client.NewSession()
 	if err != nil {
@@ -332,16 +313,55 @@ func (s *Server) chainFor(h *store.Host, a *authed) ([]*store.Host, []store.Forw
 	return append(hops, h), forwards, nil
 }
 
+// connectChain walks a chain of hops, reaching each through the previous one,
+// and returns the client for the last. A nil trust channel means host keys are
+// never prompted for: unknown or changed keys fail the connection. A non-nil
+// override replaces the last hop's credentials.
+func (s *Server) connectChain(ctx context.Context, hops []*store.Host, a *authed, send func(serverMsg), trust <-chan bool, override []ssh.AuthMethod) (*ssh.Client, func(), *hopError) {
+	var closers []func()
+	closeAll := func() {
+		for i := len(closers) - 1; i >= 0; i-- {
+			closers[i]()
+		}
+	}
+	var client *ssh.Client
+	for i, hop := range hops {
+		var o []ssh.AuthMethod
+		if i == len(hops)-1 {
+			o = override
+		}
+		next, err := s.dialHop(ctx, hop, client, a, send, trust, o)
+		if err != nil {
+			closeAll()
+			he := &hopError{hop: hop, jump: i < len(hops)-1, err: err}
+			if i > 0 {
+				he.via = hops[i-1]
+			}
+			var de *dialError
+			if errors.As(err, &de) {
+				he.unreached = true
+			}
+			return nil, nil, he
+		}
+		closers = append(closers, func() { next.Close() })
+		client = next
+	}
+	return client, closeAll, nil
+}
+
 type dialError struct{ err error }
 
 func (e *dialError) Error() string { return e.err.Error() }
 
 // dialHop connects and authenticates to hop, over TCP or through the previous
 // hop's client, and returns the SSH client for it.
-func (s *Server) dialHop(ctx context.Context, hop *store.Host, via *ssh.Client, a *authed, send func(serverMsg), trust <-chan bool) (*ssh.Client, error) {
-	auth, wipe, err := s.sshAuth(hop, a)
-	if err != nil {
-		return nil, errors.New("unable to authenticate: no usable credentials")
+func (s *Server) dialHop(ctx context.Context, hop *store.Host, via *ssh.Client, a *authed, send func(serverMsg), trust <-chan bool, override []ssh.AuthMethod) (*ssh.Client, error) {
+	auth, wipe := override, func() {}
+	var err error
+	if auth == nil {
+		if auth, wipe, err = s.sshAuth(hop, a); err != nil {
+			return nil, errors.New("unable to authenticate: no usable credentials")
+		}
 	}
 	defer wipe()
 
@@ -488,6 +508,12 @@ func (s *Server) verifyHostKey(ctx context.Context, h *store.Host, key ssh.Publi
 	if err == nil && known.Fingerprint == fp {
 		return nil
 	}
+	if trust == nil {
+		if err == nil {
+			return errHostKeyChanged
+		}
+		return errHostKeyUnknown
+	}
 	m := serverMsg{Type: "hostkey", Host: h.Name, KeyType: key.Type(), Fingerprint: fp}
 	if err == nil {
 		m.Changed, m.OldPrint = true, known.Fingerprint
@@ -506,6 +532,11 @@ func (s *Server) verifyHostKey(ctx context.Context, h *store.Host, key ssh.Publi
 	return s.db.SetKnownHost(h.ID, key.Type(), fp)
 }
 
+var (
+	errHostKeyUnknown = errors.New("host key not trusted yet")
+	errHostKeyChanged = errors.New("host key has changed")
+)
+
 func algorithmsFor(keyType string) []string {
 	if keyType == "ssh-rsa" {
 		return []string{ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSASHA256}
@@ -518,6 +549,10 @@ func describeSSHError(err error) string {
 	switch {
 	case strings.Contains(msg, "unable to authenticate"):
 		return "Authentication failed. Check the username and credentials for this host."
+	case strings.Contains(msg, errHostKeyUnknown.Error()):
+		return "Host key not trusted yet. Open this host in a terminal once, trust its key, then try again."
+	case strings.Contains(msg, errHostKeyChanged.Error()):
+		return "Host key has changed. Open this host in a terminal to review it."
 	case strings.Contains(msg, "host key rejected"):
 		return "Host key not trusted. Connection cancelled."
 	case strings.Contains(msg, "host key not confirmed"):

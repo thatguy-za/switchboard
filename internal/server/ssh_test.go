@@ -6,11 +6,15 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -27,10 +31,19 @@ type testSSHServer struct {
 	ln      net.Listener
 	cfg     *ssh.ServerConfig
 	port    int
+	noKeys  bool         // refuse public keys even if listed
+	home    string       // when set, exec runs real commands here and keys come from ~/.ssh/authorized_keys
 	tunnels atomic.Int32 // direct-tcpip channels opened through this server
 }
 
 func newTestSSHServer(t *testing.T, password string, authorized ssh.PublicKey) *testSSHServer {
+	return newTestSSHServerHome(t, password, authorized, "")
+}
+
+// newTestSSHServerHome is a server whose exec requests run real shell commands
+// with HOME set to home, and which accepts keys listed in home's authorized_keys.
+func newTestSSHServerHome(t *testing.T, password string, authorized ssh.PublicKey, home string) *testSSHServer {
+	srv := &testSSHServer{home: home}
 	cfg := &ssh.ServerConfig{
 		PasswordCallback: func(_ ssh.ConnMetadata, p []byte) (*ssh.Permissions, error) {
 			if string(p) == password {
@@ -42,10 +55,23 @@ func newTestSSHServer(t *testing.T, password string, authorized ssh.PublicKey) *
 			if authorized != nil && string(k.Marshal()) == string(authorized.Marshal()) {
 				return nil, nil
 			}
+			if srv.home != "" && !srv.noKeys {
+				data, _ := os.ReadFile(filepath.Join(srv.home, ".ssh", "authorized_keys"))
+				for len(data) > 0 {
+					var pub ssh.PublicKey
+					pub, _, _, data, _ = ssh.ParseAuthorizedKey(data)
+					if pub == nil {
+						break
+					}
+					if string(pub.Marshal()) == string(k.Marshal()) {
+						return nil, nil
+					}
+				}
+			}
 			return nil, ssh.ErrNoAuth
 		},
 	}
-	srv := &testSSHServer{cfg: cfg}
+	srv.cfg = cfg
 	srv.setHostKey(t)
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -98,19 +124,51 @@ func (s *testSSHServer) session(nc ssh.NewChannel) {
 	ch, creqs, _ := nc.Accept()
 	go func() {
 		for r := range creqs {
-			r.Reply(r.Type == "pty-req" || r.Type == "shell" || r.Type == "window-change", nil)
-		}
-	}()
-	go func() {
-		buf := make([]byte, 1024)
-		for {
-			n, err := ch.Read(buf)
-			if err != nil {
-				return
+			switch r.Type {
+			case "pty-req", "window-change":
+				r.Reply(true, nil)
+			case "shell":
+				r.Reply(true, nil)
+				go func() {
+					buf := make([]byte, 1024)
+					for {
+						n, err := ch.Read(buf)
+						if err != nil {
+							return
+						}
+						ch.Write([]byte("echo:" + string(buf[:n])))
+					}
+				}()
+			case "exec":
+				var req struct{ Command string }
+				ssh.Unmarshal(r.Payload, &req)
+				r.Reply(s.home != "", nil)
+				if s.home != "" {
+					go s.runCommand(ch, req.Command)
+				}
+			default:
+				r.Reply(false, nil)
 			}
-			ch.Write([]byte("echo:" + string(buf[:n])))
 		}
 	}()
+}
+
+func (s *testSSHServer) runCommand(ch ssh.Channel, command string) {
+	cmd := exec.Command("sh", "-c", command)
+	cmd.Env = []string{"HOME=" + s.home, "PATH=" + os.Getenv("PATH")}
+	cmd.Stdin = ch
+	cmd.Stdout = ch
+	cmd.Stderr = ch.Stderr()
+	status := uint32(0)
+	if err := cmd.Run(); err != nil {
+		status = 1
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			status = uint32(ee.ExitCode())
+		}
+	}
+	ch.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{status}))
+	ch.Close()
 }
 
 // tunnel serves "ssh -J" and "ssh -L": it dials the requested address.

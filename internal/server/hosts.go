@@ -257,9 +257,6 @@ func (s *Server) applyHostInput(h *store.Host, in *hostInput, a *authed) string 
 			h.PasswordBlob = crypto.SealSecret(s.master, a.sess.vk, h.ID, []byte(*in.Password))
 		}
 	}
-	if in.Auth == "key" {
-		h.PasswordBlob = nil
-	}
 	return ""
 }
 

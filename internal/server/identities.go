@@ -23,7 +23,9 @@ type identityView struct {
 	PublicKey   string   `json:"public_key"`
 	Fingerprint string   `json:"fingerprint"`
 	CreatedAt   int64    `json:"created_at"`
-	Hosts       []string `json:"hosts"`
+	Hosts       []string `json:"hosts"`    // hosts that currently sign in with it
+	Deployed    []string `json:"deployed"` // hosts it was pushed to
+	DeployedIDs []string `json:"deployed_ids"`
 }
 
 func (s *Server) handleListIdentities(w http.ResponseWriter, _ *http.Request, a *authed) {
@@ -37,19 +39,33 @@ func (s *Server) handleListIdentities(w http.ResponseWriter, _ *http.Request, a 
 		serverErr(w, err)
 		return
 	}
+	deployments, err := s.db.DeploymentsByIdentity(a.user.ID)
+	if err != nil {
+		serverErr(w, err)
+		return
+	}
+	names := map[string]string{}
 	used := map[string][]string{}
 	for _, h := range hosts {
+		names[h.ID] = h.Name
 		if h.IdentityID != "" {
 			used[h.IdentityID] = append(used[h.IdentityID], h.Name)
 		}
 	}
 	out := make([]identityView, 0, len(ids))
 	for _, i := range ids {
+		deployed, deployedIDs := []string{}, []string{}
+		for _, id := range deployments[i.ID] {
+			if n, ok := names[id]; ok {
+				deployed = append(deployed, n)
+				deployedIDs = append(deployedIDs, id)
+			}
+		}
 		hs := used[i.ID]
 		if hs == nil {
 			hs = []string{}
 		}
-		out = append(out, identityView{i.ID, i.Name, i.Comment, i.Kind, i.PublicKey, i.Fingerprint, i.CreatedAt, hs})
+		out = append(out, identityView{i.ID, i.Name, i.Comment, i.Kind, i.PublicKey, i.Fingerprint, i.CreatedAt, hs, deployed, deployedIDs})
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -124,7 +140,7 @@ func (s *Server) handleGenerateIdentity(w http.ResponseWriter, r *http.Request, 
 		serverErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, identityView{i.ID, i.Name, i.Comment, i.Kind, i.PublicKey, i.Fingerprint, i.CreatedAt, []string{}})
+	writeJSON(w, http.StatusOK, identityView{i.ID, i.Name, i.Comment, i.Kind, i.PublicKey, i.Fingerprint, i.CreatedAt, []string{}, []string{}, []string{}})
 }
 
 func (s *Server) handleImportIdentity(w http.ResponseWriter, r *http.Request, a *authed) {
@@ -177,7 +193,7 @@ func (s *Server) handleImportIdentity(w http.ResponseWriter, r *http.Request, a 
 		serverErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, identityView{i.ID, i.Name, i.Comment, i.Kind, i.PublicKey, i.Fingerprint, i.CreatedAt, []string{}})
+	writeJSON(w, http.StatusOK, identityView{i.ID, i.Name, i.Comment, i.Kind, i.PublicKey, i.Fingerprint, i.CreatedAt, []string{}, []string{}, []string{}})
 }
 
 func (s *Server) handleDeleteIdentity(w http.ResponseWriter, r *http.Request, a *authed) {
