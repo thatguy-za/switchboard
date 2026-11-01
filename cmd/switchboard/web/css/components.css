@@ -54,6 +54,11 @@ input[type=file]::file-selector-button { font: inherit; height: var(--h-control-
 .err { color: var(--danger); font-size: var(--fs-xs); }
 .err:empty { display: none; }
 
+/* @component password-field */
+.pwfield { position: relative; display: block; }
+.pwfield input { padding-right: calc(var(--h-icon-btn) + var(--s-3)); }
+.pwfield button.icon { position: absolute; top: 50%; right: var(--s-2); transform: translateY(-50%); }
+
 /* @component check */
 label.check { display: flex; align-items: flex-start; gap: var(--s-4); font-size: var(--fs-sm); font-weight: var(--fw-regular); color: var(--text); flex-wrap: wrap; }
 label.check > .small { flex-basis: 100%; margin-left: var(--s-12); color: var(--text-2); margin-top: calc(var(--s-2) * -1); }

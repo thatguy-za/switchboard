@@ -126,6 +126,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/hosts", s.auth(true, s.handleListHosts))
 	mux.HandleFunc("POST /api/hosts", s.auth(true, s.handleCreateHost))
 	mux.HandleFunc("PUT /api/hosts/{id}", s.auth(true, s.handleUpdateHost))
+	mux.HandleFunc("POST /api/hosts/{id}/password", s.auth(true, s.handleRevealHostPassword))
 	mux.HandleFunc("DELETE /api/hosts/{id}", s.auth(true, s.handleDeleteHost))
 	mux.HandleFunc("POST /api/folders", s.auth(true, s.handleCreateFolder))
 	mux.HandleFunc("PUT /api/folders/{id}", s.auth(true, s.handleUpdateFolder))

@@ -152,6 +152,33 @@ const dlg = () => page.locator('dialog[open]');
     if (await page.locator('#tson').isChecked()) throw new Error('the switch turned on without a key');
   });
 
+  await step('closing the last pane shows the home page', async () => {
+    await page.click('.row.host:has-text("pi-hole")');
+    await page.waitForSelector('.tab.on .dot.live', { timeout: 15000 });
+    for (let n = 0; n < 12 && await page.locator('.pane [data-act=close]:visible').count(); n++) await page.locator('.pane [data-act=close]:visible').first().click();
+    await page.waitForSelector('#empty:not([hidden])');
+    if (await page.locator('#tabs .tab').count()) throw new Error('tabs left behind');
+    await snap('47-home-after-close');
+  });
+  await step('edit a host after closing panes, and show its saved password', async () => {
+    await page.click('.row.host:has-text("nas") .kebab', { force: true });
+    const host = page.locator('dialog[open]').first();
+    await host.waitFor();
+    await host.locator('[data-reveal]').click();
+    const ask = page.locator('dialog[open]').last();
+    await ask.locator('input[name=password]').fill('test-password-1234');
+    await ask.locator('button.primary').click();
+    await page.waitForFunction(() => document.querySelectorAll('dialog[open]').length === 1);
+    const pw = host.locator('input[name=password]');
+    if (await pw.inputValue() !== 'testpass-123' || await pw.getAttribute('type') !== 'text') throw new Error('saved password not shown');
+    await snap('48-password-shown');
+    await host.locator('[data-reveal]').click();
+    if (await pw.getAttribute('type') !== 'password') throw new Error('password not hidden again');
+    await host.locator('button.primary').click();
+    await page.waitForSelector('dialog[open]', { state: 'detached' });
+    await page.waitForTimeout(300);
+  });
+
   await step('light theme', async () => {
     await nav('appearance');
     await page.click('.seg button[data-theme=light]');
@@ -199,6 +226,23 @@ const dlg = () => page.locator('dialog[open]');
     await page.click('#menu'); await page.click('#add-host'); await snap('45-m-dialog');
   });
 
+  await step('new folder from the host dialog', async () => {
+    await page.evaluate(() => document.querySelectorAll('dialog[open]').forEach(d => d.close()));
+    if (!(await page.locator('#add-host').isVisible())) await page.click('#menu');
+    await page.click('#add-host');
+    const sel = dlg().locator('select[name=folder_id]');
+    const labels = await sel.locator('option').allTextContents();
+    if (labels[labels.length - 1].trim() !== '+ Add new folder') throw new Error('last folder option is ' + labels[labels.length - 1]);
+    await sel.selectOption('__new');
+    await page.waitForFunction(() => document.querySelectorAll('dialog[open]').length === 2);
+    await page.locator('dialog[open]').last().locator('input[name=name]').fill('Scratch');
+    await page.locator('dialog[open]').last().locator('button.primary').click();
+    await page.waitForFunction(() => document.querySelectorAll('dialog[open]').length === 1);
+    const chosen = await sel.evaluate(e => e.options[e.selectedIndex].textContent.trim());
+    if (chosen !== 'Scratch') throw new Error('new folder not selected: ' + chosen);
+    await snap('46-m-new-folder');
+    await dlg().locator('[data-cancel]').first().click();
+  });
   console.log(results.join('\n'));
   console.log('page errors:', errors.length ? errors.slice(0, 8).join(' | ') : 'none');
   if (results.some(r => r.startsWith('FAIL')) || errors.length) process.exitCode = 1;

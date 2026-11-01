@@ -202,7 +202,7 @@ function hostDialog(host, opts = {}) {
       <label class="narrow wider">Type<select name="protocol"><option value="ssh"${h.protocol !== 'rdp' ? ' selected' : ''}>SSH</option>
         <option value="rdp"${h.protocol === 'rdp' ? ' selected' : ''}>Desktop (RDP)</option></select></label>
     </div>
-    <label>Folder<select name="folder_id">${folderOptions(h.folder_id)}</select></label>
+    <label>Folder<select name="folder_id">${folderOptions(h.folder_id)}<option value="__new">+ Add new folder</option></select></label>
     <div class="inline">
       <label>Address<input type="text" name="address" value="${esc(h.address)}" required autocapitalize="off" spellcheck="false"></label>
       <label class="narrow">Port<input type="number" name="port" value="${esc(h.port)}" min="1" max="65535" required></label>
@@ -211,8 +211,7 @@ function hostDialog(host, opts = {}) {
       <span class="small faint" data-proto="rdp">For a domain account, use DOMAIN\\user.</span></label>
     <label data-sshonly>Sign in with<select name="auth"><option value="password"${h.auth === 'password' ? ' selected' : ''}>Password</option>
       <option value="key"${h.auth === 'key' ? ' selected' : ''}>Identity (SSH key)</option></select></label>
-    <label data-for="password">Password<input type="password" name="password" autocomplete="new-password"
-      placeholder="${h.has_password ? 'Saved. Leave blank to keep it.' : ''}"></label>
+    <label data-for="password">Password${passwordField({ name: 'password', placeholder: h.has_password ? 'Saved. Leave blank to keep it.' : '' })}</label>
     <label data-for="key" data-sshonly>Identity<select name="identity_id">${idOpts}</select></label>
     <label data-proto="rdp">Security<select name="security">${[['any', 'Automatic'], ['nla', 'Network Level Authentication'], ['tls', 'TLS'], ['rdp', 'Standard RDP (legacy)']]
       .map(([v, t]) => `<option value="${v}"${v === h.security ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
@@ -259,6 +258,32 @@ function hostDialog(host, opts = {}) {
   d.querySelector('[name=auth]').addEventListener('change', sync);
   sync();
 
+  // The eye shows what is typed, or, for a saved password, asks for the account password and fetches it.
+  const pw = d.querySelector('[name=password]');
+  const forget = d.querySelector('[name=forget]');
+  bindPasswordField(pw, host && h.has_password && !(forget && forget.checked) ? async () => {
+    const asked = await new Promise(resolve => {
+      const pd = passwordDialog('Show the saved password', 'Enter your account password to see it.', 'Show', async password => {
+        const r = await api('POST', `/hosts/${host.id}/password`, { password });
+        resolve(r.password);
+      });
+      pd.addEventListener('close', () => resolve(null));
+    });
+    return asked;
+  } : null);
+  if (forget) forget.addEventListener('change', () => { if (forget.checked) { pw.value = ''; pw.dispatchEvent(new Event('input')); } });
+
+  // The last folder choice makes a new folder and then selects it.
+  const folderSel = d.querySelector('[name=folder_id]');
+  let folderPick = folderSel.value;
+  folderSel.addEventListener('change', () => {
+    if (folderSel.value !== '__new') { folderPick = folderSel.value; return; }
+    folderDialog(null, made => {
+      folderSel.innerHTML = folderOptions(made ? made.id : folderPick) + '<option value="__new">+ Add new folder</option>';
+      folderPick = folderSel.value;
+    });
+  });
+
   const del = d.querySelector('[data-del]');
   if (del) del.addEventListener('click', () => {
     d.close();
@@ -271,17 +296,19 @@ function hostDialog(host, opts = {}) {
   });
 }
 
-function folderDialog(folder) {
+function folderDialog(folder, onClose = () => {}) {
+  let saved = null;
   const d = dialog(folder ? 'Edit folder' : 'New folder', `
     <label>Name<input type="text" name="name" value="${esc(folder ? folder.name : '')}" required maxlength="80"></label>
     <label>Inside<select name="parent_id">${folderOptions(folder ? folder.parent_id : '', folder && folder.id)}</select></label>`, {
     extra: folder ? '<button type="button" class="danger" data-del>Delete</button>' : '',
     onSubmit: async fd => {
-      await api(folder ? 'PUT' : 'POST', folder ? '/folders/' + folder.id : '/folders', { name: fd.get('name'), parent_id: fd.get('parent_id') });
+      saved = await api(folder ? 'PUT' : 'POST', folder ? '/folders/' + folder.id : '/folders', { name: fd.get('name'), parent_id: fd.get('parent_id') });
       await loadHosts();
       toast(folder ? 'Folder saved' : 'Folder added');
     },
   });
+  d.addEventListener('close', () => onClose(saved));
   const del = d.querySelector('[data-del]');
   if (del) del.addEventListener('click', () => {
     d.close();
@@ -380,7 +407,7 @@ function pickHost(title, done) { openPalette({ onPick: done, placeholder: title 
 
 const encoder = new TextEncoder();
 
-function leaves(node) { return node.kind === 'leaf' ? [node.sess] : [...leaves(node.a), ...leaves(node.b)]; }
+function leaves(node) { return !node ? [] : node.kind === 'leaf' ? [node.sess] : [...leaves(node.a), ...leaves(node.b)]; }
 function allSessions() { return WS.tabs.flatMap(t => leaves(t.root)); }
 
 function findLeaf(node, sess) {
@@ -719,9 +746,10 @@ function teardown(sess) {
 
 function closeSession(sess) {
   const wtab = sess.wtab;
+  const rest = removeLeaf(wtab.root, sess);
+  if (!rest) return closeTab(wtab); // the last pane: closing the tab also tears it down
   teardown(sess);
-  wtab.root = removeLeaf(wtab.root, sess);
-  if (!wtab.root) return closeTab(wtab);
+  wtab.root = rest;
   if (wtab.active === sess) wtab.active = leaves(wtab.root)[0];
   renderLayout(wtab);
   renderTabs();

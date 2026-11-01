@@ -22,6 +22,30 @@ const button = (label, { kind = '', icon: ic = '', attrs = '' } = {}) =>
 const codeBlock = text => `<p class="codeblock">${esc(text)}</p>`;
 const codeGrid = codes => `<div class="codes">${codes.map(c => `<span>${esc(c)}</span>`).join('')}</div>`;
 const panel = inner => `<div class="panel">${inner}</div>`;
+// A password input with an eye button. bindPasswordField wires it up.
+const passwordField = ({ name, placeholder = '', autocomplete = 'new-password' }) =>
+  `<span class="pwfield"><input type="password" name="${esc(name)}" autocomplete="${esc(autocomplete)}" placeholder="${esc(placeholder)}">${iconButton('eye', 'Show password', 'type="button" data-reveal')}</span>`;
+
+// fetchSaved, when given, returns the stored password (or null) for an empty field.
+function bindPasswordField(input, fetchSaved) {
+  const btn = input.parentElement.querySelector('[data-reveal]');
+  const set = shown => {
+    input.type = shown ? 'text' : 'password';
+    btn.setAttribute('aria-label', shown ? 'Hide password' : 'Show password');
+    btn.querySelector('use').setAttribute('href', `/icons.svg#i-${shown ? 'eye-off' : 'eye'}`);
+  };
+  btn.addEventListener('click', async () => {
+    if (input.type === 'text') return set(false);
+    if (!input.value && fetchSaved) {
+      const saved = await fetchSaved();
+      if (saved === null) return;
+      input.value = saved;
+    }
+    set(true);
+    input.focus();
+  });
+}
+
 const settingRow = (title, desc, control) =>
   `<div class="setting"><div class="what"><div class="title">${title}</div>${desc ? `<div class="desc">${desc}</div>` : ''}</div><div class="ctl">${control}</div></div>`;
 const itemRow = ({ lead = '', title, tags = '', meta = '', actions = '' }) =>

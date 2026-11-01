@@ -207,3 +207,29 @@ func TestAnyPasswordLength(t *testing.T) {
 		}
 	}
 }
+
+func TestRevealHostPassword(t *testing.T) {
+	_, ts, u := newBridgeEnv(t)
+	withPw := addHost(t, u, "has password", 22, nil)
+	without := addHost(t, u, "key host", 22, map[string]any{"auth": "key", "password": nil})
+	_ = without
+
+	if code, _ := u.do("POST", "/api/hosts/"+withPw+"/password", map[string]string{"password": "wrong"}); code == 200 {
+		t.Fatal("password revealed with the wrong account password")
+	}
+	code, out := u.do("POST", "/api/hosts/"+withPw+"/password", map[string]string{"password": "a long enough password"})
+	if code != 200 || out["password"] != "s3cret" {
+		t.Fatalf("reveal: %d %v", code, out)
+	}
+	if code, _ := newClient(t, ts.URL).do("POST", "/api/hosts/"+withPw+"/password", map[string]string{"password": "a long enough password"}); code != 401 {
+		t.Fatalf("anonymous reveal: %d", code)
+	}
+	// Another account can't see it, even with its own password.
+	u.do("POST", "/api/admin/users", map[string]string{"username": "kim", "password": "temporary password", "role": "member"})
+	m := newClient(t, ts.URL)
+	m.do("POST", "/api/login", credentials{"kim", "temporary password"})
+	m.do("POST", "/api/password", map[string]string{"current": "temporary password", "new": "a different long password"})
+	if code, _ := m.do("POST", "/api/hosts/"+withPw+"/password", map[string]string{"password": "a different long password"}); code != 404 {
+		t.Fatalf("another user's host: %d", code)
+	}
+}

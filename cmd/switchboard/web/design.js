@@ -83,6 +83,8 @@ const COMPONENTS = [
       <label>Type<select><option>SSH</option><option>Desktop (RDP)</option></select></label>
       <label>Private key<textarea rows="3" class="mono">-----BEGIN OPENSSH PRIVATE KEY-----</textarea></label>
       <label>Files<input type="file"></label><p class="err">That password is not long enough.</p></div>` },
+  { id: 'password-field', name: 'Password field', description: 'A password input with an eye button that shows what is typed.',
+    render: () => `<div class="stage column"><label>Password${passwordField({ name: 'pw-demo', placeholder: 'Saved. Leave blank to keep it.' })}</label></div>` },
   { id: 'check', name: 'Checkbox', description: 'For choices that apply on save. A hint sits under the label.',
     render: () => `<div class="stage column">${checkField('a', 'Accept self-signed certificates', 'Windows PCs usually have one.')}${checkField('b', 'I have stored this key somewhere safe')}</div>` },
   { id: 'switch', name: 'Switch', description: 'For settings that take effect straight away.',
@@ -165,6 +167,7 @@ async function drawGuide() {
       ${segmented('Theme', [['system', 'System', 'device-laptop'], ['light', 'Light', 'sun'], ['dark', 'Dark', 'moon']], themeChoice(), 'data-theme')}</div>
     ${sections.join('')}</main></div>`;
   applyVars(guide);
+  guide.querySelectorAll('.pwfield input').forEach(i => bindPasswordField(i, null));
   guide.querySelector('.guide-top .seg').addEventListener('click', ev => {
     const b = ev.target.closest('[data-theme]');
     if (!b) return;

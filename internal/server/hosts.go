@@ -277,3 +277,23 @@ func (s *Server) handleDeleteHost(w http.ResponseWriter, r *http.Request, a *aut
 	}
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
+
+// handleRevealHostPassword returns a host's saved password. Passwords are
+// otherwise never sent to the browser, so it needs the account password again.
+func (s *Server) handleRevealHostPassword(w http.ResponseWriter, r *http.Request, a *authed) {
+	h, err := s.db.GetHost(r.PathValue("id"), a.user.ID)
+	if err != nil || h.PasswordBlob == nil {
+		apiErr(w, http.StatusNotFound, "not_found")
+		return
+	}
+	if !s.confirmPassword(w, r, a) {
+		return
+	}
+	pw, err := crypto.OpenSecret(s.master, a.sess.vk, h.ID, h.PasswordBlob)
+	if err != nil {
+		serverErr(w, err)
+		return
+	}
+	defer crypto.Zero(pw)
+	writeJSON(w, http.StatusOK, map[string]string{"password": string(pw)})
+}
