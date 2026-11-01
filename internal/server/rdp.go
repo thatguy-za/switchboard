@@ -76,6 +76,19 @@ func (s *Server) rdpRelease() {
 	s.rdpMu.Unlock()
 }
 
+// prepareTransfers makes sure the drive folder base exists and clears folders left behind by
+// an earlier run.
+func (s *Server) prepareTransfers() {
+	if s.cfg.TransferDir == "" {
+		return
+	}
+	// guacd runs as the same user here, but may not elsewhere, so leave the base open to it.
+	if os.MkdirAll(s.cfg.TransferDir, 0o777) == nil {
+		os.Chmod(s.cfg.TransferDir, 0o777)
+	}
+	s.clearTransfers()
+}
+
 // clearTransfers removes drive folders left behind by an earlier run.
 func (s *Server) clearTransfers() {
 	if s.cfg.TransferDir == "" {
@@ -255,7 +268,7 @@ func (s *Server) rdpParams(h *store.Host, a *authed) (map[string]string, func())
 		"security":      h.RDPSecurity,
 		"ignore-cert":   strconv.FormatBool(h.RDPIgnoreCert),
 		"resize-method": "display-update",
-		"color-depth":   "24", "enable-wallpaper": "false", "enable-font-smoothing": "true",
+		"color-depth":   "32", "enable-wallpaper": "false", "enable-font-smoothing": "true",
 		"disable-audio": "false", "enable-audio-input": "false",
 		"client-name": "Switchboard", "server-layout": "en-us-qwerty",
 		"enable-drive": "false",

@@ -76,7 +76,7 @@ func New(cfg Config, web fs.FS) (*Server, error) {
 		sess: newSessions(), limit: newLimiter(20, time.Minute),
 		dummyHash: crypto.HashPassword("dummy"), stop: make(chan struct{}),
 	}
-	s.clearTransfers()
+	s.prepareTransfers()
 	go s.janitor()
 	return s, nil
 }

@@ -136,6 +136,11 @@ function rdpOpen(sess) {
     if (live()) sess.client.sendMouseState(e.state, true);
     if (e.type === 'mousedown') sess.sink.focus({ preventScroll: true });
   };
+  // A real click moves focus to the page after the mouse handlers run, so take it back once the
+  // click is done. Without this, typing right after clicking the desktop would go nowhere.
+  sess.holder.addEventListener('click', ev => {
+    if (!ev.target.closest('.rpanel')) sess.sink.focus({ preventScroll: true });
+  });
   const mouse = new Guacamole.Mouse(sess.screen);
   mouse.onEach(['mousedown', 'mouseup', 'mousemove'], pointer);
   const touch = new Guacamole.Mouse.Touchscreen(sess.screen);

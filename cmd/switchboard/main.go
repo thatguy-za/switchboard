@@ -1,13 +1,19 @@
 package main
 
 import (
+	"context"
 	"embed"
+	"errors"
 	"flag"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/thatguy-za/switchboard/internal/server"
@@ -54,13 +60,28 @@ func main() {
 	if err != nil || maxRDP < 1 {
 		log.Fatal("SWITCHBOARD_MAX_RDP must be a positive number")
 	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	var children sync.WaitGroup
+
+	// RDP goes through guacd. Unless SWITCHBOARD_GUACD points at one elsewhere, run the copy
+	// that ships in the image, reachable only from inside this container.
+	guacd := os.Getenv("SWITCHBOARD_GUACD")
+	if guacd == "" {
+		guacd = "127.0.0.1:4822"
+		host, gport, _ := net.SplitHostPort(guacd)
+		startGuacd(ctx, host, gport, &children)
+	}
+
+	keysDir := env("SWITCHBOARD_KEYS_DIR", "/data/keys")
 	srv, err := server.New(server.Config{
 		DataDir:        env("SWITCHBOARD_DATA_DIR", "/data"),
-		KeysDir:        env("SWITCHBOARD_KEYS_DIR", "/keys"),
+		KeysDir:        keysDir,
 		Port:           port,
 		SessionTimeout: timeout,
-		Guacd:          env("SWITCHBOARD_GUACD", "guacd:4822"),
-		TransferDir:    env("SWITCHBOARD_TRANSFER_DIR", "/transfer"),
+		Guacd:          guacd,
+		TransferDir:    env("SWITCHBOARD_TRANSFER_DIR", "/tmp/switchboard-transfer"),
 		MaxRDP:         maxRDP,
 	}, web)
 	if err != nil {
@@ -69,8 +90,20 @@ func main() {
 	defer srv.Close()
 
 	if srv.KeyCreated() {
-		log.Printf("generated a new master key in %s; back it up from the admin panel", env("SWITCHBOARD_KEYS_DIR", "/keys"))
+		log.Printf("generated a new master key in %s; back it up from Settings", keysDir)
 	}
+
+	httpSrv := &http.Server{Addr: addr, Handler: srv.Handler(), ReadHeaderTimeout: 15 * time.Second}
+	go func() {
+		<-ctx.Done()
+		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		httpSrv.Shutdown(shutdown)
+	}()
 	log.Printf("switchboard listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, srv.Handler()))
+	if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		log.Fatal(err)
+	}
+	stop()
+	children.Wait()
 }

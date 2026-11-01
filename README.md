@@ -1,6 +1,6 @@
 # Switchboard
 
-Self-hosted SSH and RDP client that runs in Docker. See the MVP PRD for scope.
+Self-hosted SSH and RDP client that runs in Docker: one container, one volume.
 
 ## Run
 
@@ -9,6 +9,7 @@ docker compose up -d
 ```
 
 Then open `http://<server-ip>:3000` (or a DNS name that points at it, such as `http://switchboard.local:3000`).
+The first visit sets up the owner account. Everything Switchboard stores lives in the `switchboard-data` volume.
 
 ## SSH
 
@@ -37,7 +38,7 @@ permission denied, unreachable, host key not trusted, or key added but login wit
 
 Add a host with type *Remote desktop (RDP)* and open it like any other: it appears in a tab or in a
 split pane beside terminals. Switchboard hands the connection to `guacd` (the Apache Guacamole proxy,
-run as a second container) and streams the desktop to your browser; the host's password is added on the
+which is built into the same container) and streams the desktop to your browser; the host's password is added on the
 server and never reaches the browser.
 
 - **Resolution** follows the pane, so resizing the window or a divider resizes the remote desktop.
@@ -46,8 +47,9 @@ server and never reaches the browser.
   on plain `http://ip:3000` paste works with Ctrl+V and text copied on the desktop waits in the
   *Clipboard* panel. Put Switchboard behind a TLS reverse proxy for fully automatic sync.
 - **Files:** the *Files* panel uploads to, and downloads from, a drive called "Switchboard" on the remote
-  desktop. You can also drop files onto the desktop. Files live on a RAM-backed volume capped at 512 MB
-  that is emptied when a session ends and whenever the containers restart.
+  desktop. You can also drop files onto the desktop. They sit in a temporary folder inside the container
+  (`/tmp/switchboard-transfer`) that is emptied when a session ends and whenever the container restarts.
+  To keep them in memory instead of on disk, add `tmpfs: ["/tmp:size=512m"]` to the service.
 - **Audio** from the remote machine plays in the browser. Your first click in the pane starts it.
 - **Ctrl+Alt+Del** has its own button, since browsers can't send it.
 - **Certificates:** Windows machines usually present self-signed certificates, so *Accept self-signed
@@ -56,7 +58,7 @@ server and never reaches the browser.
 
 Not included yet: microphone, printing, multiple monitors, other keyboard layouts (US only), RDP through
 jump hosts, and a polished on-screen keyboard on phones (typing there is best effort).
-`guacamole/guacd:1.6.0` is used because it is published for both amd64 and arm64.
+The image is built on `guacamole/guacd:1.6.0`, which is published for both amd64 and arm64.
 
 ### Jump hosts, forwards and split panes
 
@@ -106,18 +108,27 @@ service workers on secure origins. Phones can still add the page to the home scr
 
 ## Master key
 
-On first start Switchboard generates a master key in the `/keys` volume. Every stored
-secret is encrypted with it as an outer layer, so a stolen database alone is unreadable.
-It cannot be supplied or replaced. Download a copy from the admin panel (it asks for your
-password) and store it away from the server: if the key is lost, no vault can be opened.
-A full restore needs both the `/data` and `/keys` volumes.
+On first start Switchboard generates a master key in `/data/keys`. Every stored secret is
+encrypted with it as an outer layer. It cannot be supplied or replaced. Download a copy from
+Settings, Server (it asks for your password) and keep it somewhere other than this server:
+if the key is lost, no vault can be opened.
+
+The key sits in the same volume as the database, so a copy of the whole volume contains both.
+Your vault contents are still protected by each person's password. To keep the key apart, mount a
+second volume and point `SWITCHBOARD_KEYS_DIR` at it. To restore an instance, restore the `/data` volume.
 
 ## Configuration
+
+Everything has a working default. These are optional:
 
 | Variable | Default | |
 |---|---|---|
 | `SWITCHBOARD_PORT` | `3000` | listen port inside the container |
 | `SWITCHBOARD_SESSION_TIMEOUT` | `30m` | idle timeout |
+| `SWITCHBOARD_MAX_RDP` | `10` | most remote desktops open at once |
+| `SWITCHBOARD_KEYS_DIR` | `/data/keys` | where the master key lives |
+| `SWITCHBOARD_TRANSFER_DIR` | `/tmp/switchboard-transfer` | scratch space for desktop file transfer |
+| `SWITCHBOARD_GUACD` | built in | `host:port` of a guacd elsewhere, instead of the bundled one |
 
 ## Images
 
