@@ -3,12 +3,13 @@ package main
 import (
 	"embed"
 	"flag"
-	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/thatguy-za/switchboard/internal/server"
 )
 
 //go:embed web
@@ -36,17 +37,28 @@ func main() {
 		return
 	}
 
+	timeout, err := time.ParseDuration(env("SWITCHBOARD_SESSION_TIMEOUT", "30m"))
+	if err != nil {
+		log.Fatalf("SWITCHBOARD_SESSION_TIMEOUT: %v", err)
+	}
 	web, err := fs.Sub(webFS, "web")
 	if err != nil {
 		log.Fatal(err)
 	}
+	srv, err := server.New(server.Config{
+		DataDir:        env("SWITCHBOARD_DATA_DIR", "/data"),
+		KeysDir:        env("SWITCHBOARD_KEYS_DIR", "/keys"),
+		BaseURL:        env("SWITCHBOARD_BASE_URL", "http://localhost:8080"),
+		SessionTimeout: timeout,
+	}, web)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer srv.Close()
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		fmt.Fprintln(w, "ok")
-	})
-	mux.Handle("/", http.FileServer(http.FS(web)))
-
+	if srv.KeyCreated() {
+		log.Printf("generated a new master key in %s; back it up from the admin panel", env("SWITCHBOARD_KEYS_DIR", "/keys"))
+	}
 	log.Printf("switchboard listening on %s", addr)
-	log.Fatal(http.ListenAndServe(addr, mux))
+	log.Fatal(http.ListenAndServe(addr, srv.Handler()))
 }
