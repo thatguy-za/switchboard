@@ -1,0 +1,36 @@
+/* Only the style guide page (design.html) loads this. It lays out the guide itself and obeys the same token rules. */
+
+.guide { display: grid; grid-template-columns: var(--w-subnav) minmax(0, 1fr); gap: var(--s-16); max-width: calc(var(--w-page) + var(--w-subnav) + var(--s-24)); margin: 0 auto; padding: var(--s-16) var(--s-12) var(--s-30); }
+.guide-nav { position: sticky; top: var(--s-16); align-self: start; display: grid; gap: var(--s-1); max-height: calc(100dvh - var(--s-30)); overflow: auto; }
+.guide-nav a { display: block; padding: var(--s-2) var(--s-5); border-radius: var(--r-sm); color: var(--text-2); font-size: var(--fs-xs); }
+.guide-nav a:hover { background: var(--surface-hover); color: var(--text); text-decoration: none; }
+.guide-nav .group { padding: var(--s-5) var(--s-5) var(--s-2); font-size: var(--fs-2xs); font-weight: var(--fw-medium); color: var(--text-3); }
+.guide-main { display: grid; gap: var(--s-16); min-width: 0; }
+.guide section { display: grid; gap: var(--s-7); scroll-margin-top: var(--s-12); }
+.guide .desc { color: var(--text-2); max-width: 70ch; }
+.stage { position: relative; padding: var(--s-10); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-lg); display: flex; flex-wrap: wrap; gap: var(--s-6); align-items: center; min-height: var(--h-stage); }
+.stage.column { display: grid; align-items: start; }
+.stage.flush { padding: 0; display: block; overflow: hidden; }
+.stage.tall { min-height: var(--h-stage-tall); align-items: flex-start; }
+.stage dialog { position: static; margin: 0; box-shadow: none; max-height: none; }
+.stage .tover { position: relative; inset: auto; padding: var(--s-6); }
+.stage .popover { position: relative; top: auto; right: auto; }
+.stage .tabs { width: 100%; }
+.stage .page-head { width: 100%; }
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--w-swatch-min), 1fr)); gap: var(--s-5); }
+.swatch { display: grid; gap: var(--s-2); font-size: var(--fs-xs); }
+.swatch .chip { height: var(--h-control-lg); border-radius: var(--r-md); border: 1px solid var(--line); background: var(--swatch); }
+.swatch code { color: var(--text-2); }
+.scale { display: grid; gap: var(--s-3); }
+.scale-row { display: grid; grid-template-columns: var(--w-scale-label) var(--w-scale-value) minmax(0, 1fr); gap: var(--s-6); align-items: center; font-size: var(--fs-xs); color: var(--text-2); }
+.scale-bar { height: var(--s-5); background: var(--acc); border-radius: var(--r-xs); width: var(--bar); }
+.radius-box { width: var(--s-24); height: var(--s-24); background: var(--surface-selected); border: 1px solid var(--line-strong); border-radius: var(--radius); display: grid; place-items: center; font-size: var(--fs-2xs); color: var(--text-2); }
+.shadow-box { width: var(--w-shadow-box); height: var(--s-24); background: var(--surface-raised); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); display: grid; place-items: center; font-size: var(--fs-2xs); color: var(--text-2); }
+.type-sample { display: grid; grid-template-columns: var(--w-scale-label) minmax(0, 1fr); gap: var(--s-6); align-items: baseline; }
+.type-sample span:first-child { font-size: var(--fs-xs); color: var(--text-3); font-family: var(--font-mono); }
+.icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--w-icon-cell), 1fr)); gap: var(--s-3); }
+.icon-cell { display: grid; justify-items: center; gap: var(--s-3); padding: var(--s-6) var(--s-3); border-radius: var(--r-md); font-size: var(--fs-2xs); color: var(--text-2); }
+.icon-cell:hover { background: var(--surface-hover); }
+.guide-top { display: flex; align-items: flex-start; gap: var(--s-8); flex-wrap: wrap; }
+.guide-top > div:first-child { flex: 1; min-width: var(--w-head-min); }
+@media (max-width: 760px) { .guide { grid-template-columns: 1fr; } .guide-nav { position: static; max-height: none; display: flex; flex-wrap: wrap; } }

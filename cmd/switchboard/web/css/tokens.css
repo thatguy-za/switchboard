@@ -1,0 +1,169 @@
+/* ==========================================================================
+   Switchboard design tokens
+
+   Three layers. Only this file may contain raw colours, lengths and timings.
+     1. Primitives   the palette and the scales (space, type, radius, size, motion)
+     2. Semantic     what a colour is for (surface, text, accent), set per theme
+     3. Component    sizes that belong to one component
+   Everything else in the interface refers to these by name.
+   ========================================================================== */
+
+:root {
+  /* ---- 1. primitives: palette ---- */
+  --ink-950: #0a0b0c; --ink-900: #0d0e10; --ink-875: #0f1013; --ink-850: #111215; --ink-800: #171a1e;
+  --ink-750: #1a1c20; --ink-700: #1c1f24; --ink-600: #212429; --ink-500: #2c3037; --ink-300: #7b818b;
+  --ink-200: #9aa0a9; --ink-50: #e8eaed;
+  --paper-0: #ffffff; --paper-25: #fdfdfc; --paper-50: #fafaf8; --paper-100: #f2f2ef; --paper-150: #ededea;
+  --paper-200: #e8e8e3; --paper-300: #e4e4df; --paper-400: #d3d3cc; --paper-600: #767b83; --paper-700: #565b64;
+  --paper-900: #17181a;
+  --green-400: #6fc3a5; --green-700: #2a7a5d; --green-950: #08241a;
+  --red-400: #f0786b; --red-600: #c4382b;
+  --amber-400: #e3b563; --amber-700: #946507;
+  --black: #000000; --white: #ffffff;
+
+  /* ---- 1. primitives: scales ---- */
+  --s-1: 2px; --s-2: 4px; --s-3: 6px; --s-4: 8px; --s-5: 10px; --s-6: 12px; --s-7: 14px; --s-8: 16px; --s-9: 18px;
+  --s-10: 20px; --s-11: 22px; --s-13: 26px; --s-12: 24px; --s-14: 28px; --s-16: 32px; --s-20: 40px; --s-24: 48px; --s-30: 60px;
+
+  --font-ui: "Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --fs-2xs: 11px; --fs-xs: 12px; --fs-sm: 13px; --fs-md: 14px; --fs-lg: 15px; --fs-xl: 16px; --fs-2xl: 20px;
+  --lh-tight: 1.25; --lh-base: 1.5; --lh-loose: 1.7;
+  --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600;
+  --tracking-tight: -.015em; --tracking-snug: -.01em;
+
+  --r-xs: 4px; --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-xl: 14px; --r-full: 999px;
+  --z-popover: 6; --z-overlay: 5; --z-drawer: 40; --z-scrim: 39; --z-toast: 200; --z-divider: 2;
+
+  --dur-fast: 80ms; --dur-base: 140ms; --dur-slow: 200ms; --dur-toast: 2600ms;
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+
+  /* ---- 3. component sizes ---- */
+  --h-control: 32px; --h-control-sm: 28px; --h-control-lg: 36px; --h-field: 34px;
+  --h-icon-btn: 28px; --h-icon-btn-sm: 24px; --h-tag: 18px; --h-row: 30px; --h-row-lg: 38px; --h-nav: 32px;
+  --h-folder: 28px; --h-tabs: 42px; --h-tab: 34px; --h-phead: 30px; --h-topbar: 46px; --h-palette-input: 50px;
+  --icon-sm: 14px; --icon-md: 16px; --icon-lg: 20px; --icon-xl: 26px; --icon-hero: 30px;
+  --w-side: 252px; --w-dialog: 460px; --w-dialog-wide: 580px; --w-palette: 560px; --w-popover: 390px;
+  --w-auth: 372px; --w-page: 900px; --w-subnav: 188px; --w-toast: 360px; --w-welcome: 420px; --w-narrow: 96px;
+  --w-switch: 36px; --h-switch: 20px; --size-check: 16px; --size-avatar: 24px; --size-dot: 7px;
+  --w-select: 190px; --w-drawer: 300px; --w-forward-kind: 88px; --w-forward-port: 74px; --w-fwdlist: 260px;
+  --h-key: 38px; --w-narrow-sm: 76px; --w-narrow-wide: 150px; --w-tab-max: 220px; --w-tab-label-max: 170px; --w-field-min: 140px; --w-head-min: 220px;
+  --w-swatch-min: 150px; --w-icon-cell: 112px; --w-shadow-box: 120px; --w-scale-label: 90px; --w-scale-value: 60px;
+  --h-stage: 80px; --h-stage-tall: 220px;
+  --hit: 4px;
+}
+
+/* ---- 2. semantic: dark (the default) ---- */
+:root {
+  --bg: var(--ink-900);
+  --surface-side: var(--ink-850);
+  --surface-raised: var(--ink-750);
+  --surface-field: var(--ink-875);
+  --surface-term: var(--ink-950);
+  --surface-selected: var(--ink-700);
+  --surface-hover: var(--ink-800);
+  --line: var(--ink-600);
+  --line-strong: var(--ink-500);
+  --text: var(--ink-50);
+  --text-2: var(--ink-200);
+  --text-3: var(--ink-300);
+  --acc: var(--green-400);
+  --acc-ink: var(--green-950);
+  --danger: var(--red-400);
+  --warn: var(--amber-400);
+  --switch-knob: var(--white);
+  --qr-bg: var(--white);
+  --desktop-bg: var(--black);
+  --on-danger: var(--white);
+  --shadow-ink: var(--black);
+  --overlay-ink: var(--ink-950);
+  --acc-soft: color-mix(in srgb, var(--acc) 13%, transparent);
+  --danger-soft: color-mix(in srgb, var(--danger) 12%, transparent);
+  --warn-soft: color-mix(in srgb, var(--warn) 12%, transparent);
+  --overlay: color-mix(in srgb, var(--overlay-ink) 62%, transparent);
+  --shadow-lg: 0 18px 50px color-mix(in srgb, var(--shadow-ink) 50%, transparent);
+  --focus-ring: 0 0 0 3px var(--acc-soft);
+  color-scheme: dark;
+}
+
+/* ---- 2. semantic: light ---- */
+:root[data-theme="light"] {
+  --bg: var(--paper-50);
+  --surface-side: var(--paper-100);
+  --surface-raised: var(--paper-0);
+  --surface-field: var(--paper-0);
+  --surface-term: var(--paper-25);
+  --surface-selected: var(--paper-200);
+  --surface-hover: var(--paper-150);
+  --line: var(--paper-300);
+  --line-strong: var(--paper-400);
+  --text: var(--paper-900);
+  --text-2: var(--paper-700);
+  --text-3: var(--paper-600);
+  --acc: var(--green-700);
+  --acc-ink: var(--white);
+  --danger: var(--red-600);
+  --warn: var(--amber-700);
+  --shadow-ink: var(--paper-900);
+  --overlay-ink: var(--paper-900);
+  --overlay: color-mix(in srgb, var(--overlay-ink) 34%, transparent);
+  --shadow-lg: 0 18px 50px color-mix(in srgb, var(--shadow-ink) 18%, transparent);
+  --acc-soft: color-mix(in srgb, var(--acc) 11%, transparent);
+  --danger-soft: color-mix(in srgb, var(--danger) 9%, transparent);
+  --warn-soft: color-mix(in srgb, var(--warn) 10%, transparent);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg: var(--paper-50);
+    --surface-side: var(--paper-100);
+    --surface-raised: var(--paper-0);
+    --surface-field: var(--paper-0);
+    --surface-term: var(--paper-25);
+    --surface-selected: var(--paper-200);
+    --surface-hover: var(--paper-150);
+    --line: var(--paper-300);
+    --line-strong: var(--paper-400);
+    --text: var(--paper-900);
+    --text-2: var(--paper-700);
+    --text-3: var(--paper-600);
+    --acc: var(--green-700);
+    --acc-ink: var(--white);
+    --danger: var(--red-600);
+    --warn: var(--amber-700);
+    --shadow-ink: var(--paper-900);
+    --overlay-ink: var(--paper-900);
+    --overlay: color-mix(in srgb, var(--overlay-ink) 34%, transparent);
+    --shadow-lg: 0 18px 50px color-mix(in srgb, var(--shadow-ink) 18%, transparent);
+    --acc-soft: color-mix(in srgb, var(--acc) 11%, transparent);
+    --danger-soft: color-mix(in srgb, var(--danger) 9%, transparent);
+    --warn-soft: color-mix(in srgb, var(--warn) 10%, transparent);
+    color-scheme: light;
+  }
+}
+
+/* ---- terminal palettes ----
+   Read by JavaScript to colour xterm. A host picks one; "auto" follows the theme. */
+[data-term="dark"] {
+  --term-bg: var(--ink-950); --term-fg: var(--ink-50); --term-cursor: var(--ink-50);
+  --term-selection: color-mix(in srgb, var(--green-400) 28%, transparent);
+  --term-black: #1b1d21; --term-red: #f0786b; --term-green: #6fc3a5; --term-yellow: #e3b563;
+  --term-blue: #7aa7e8; --term-magenta: #c49be0; --term-cyan: #6dc7d4; --term-white: #c9ced6;
+  --term-bright-black: #5b616b; --term-bright-red: #f59a8f; --term-bright-green: #8fd8bd; --term-bright-yellow: #edc983;
+  --term-bright-blue: #9bbcf0; --term-bright-magenta: #d4b4ea; --term-bright-cyan: #8ed8e2; --term-bright-white: #f2f4f7;
+}
+[data-term="light"] {
+  --term-bg: var(--paper-25); --term-fg: var(--paper-900); --term-cursor: var(--paper-900);
+  --term-selection: color-mix(in srgb, var(--green-700) 22%, transparent);
+  --term-black: #17181a; --term-red: #c4382b; --term-green: #2a7a5d; --term-yellow: #946507;
+  --term-blue: #2f5fb3; --term-magenta: #8a4fb0; --term-cyan: #1f7f8c; --term-white: #8a8f97;
+  --term-bright-black: #565b64; --term-bright-red: #d9544a; --term-bright-green: #35906e; --term-bright-yellow: #ad7a14;
+  --term-bright-blue: #4678cc; --term-bright-magenta: #a066c7; --term-bright-cyan: #2c96a5; --term-bright-white: #17181a;
+}
+[data-term="contrast"] {
+  --term-bg: var(--black); --term-fg: var(--white); --term-cursor: var(--white); --term-selection: #555555;
+  --term-black: #000000; --term-red: #ff5f56; --term-green: #5af78e; --term-yellow: #f3f99d;
+  --term-blue: #57c7ff; --term-magenta: #ff6ac1; --term-cyan: #9aedfe; --term-white: #f1f1f0;
+  --term-bright-black: #686868; --term-bright-red: #ff5f56; --term-bright-green: #5af78e; --term-bright-yellow: #f3f99d;
+  --term-bright-blue: #57c7ff; --term-bright-magenta: #ff6ac1; --term-bright-cyan: #9aedfe; --term-bright-white: #ffffff;
+}

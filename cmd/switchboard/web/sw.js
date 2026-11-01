@@ -4,9 +4,9 @@
 // Network first, so a new release is picked up as soon as you are online.
 // Nothing under /api/ is ever cached, and WebSockets bypass service workers.
 
-const CACHE = 'switchboard-shell-v2';
+const CACHE = 'switchboard-shell-v3';
 const SHELL = [
-  '/', '/style.css', '/ui.js', '/app.js', '/workspace.js', '/rdp.js',
+  '/', '/css/tokens.css', '/css/base.css', '/css/components.css', '/css/layouts.css', '/icons.svg', '/ui.js', '/app.js', '/workspace.js', '/rdp.js',
   '/fonts/fonts.css', '/fonts/inter-latin-wght-normal.woff2', '/fonts/jetbrains-mono-latin-wght-normal.woff2',
   '/vendor/xterm.css', '/vendor/xterm.js', '/vendor/addon-fit.js', '/vendor/guacamole-common.js',
   '/icon.svg', '/icon-192.png', '/manifest.webmanifest',

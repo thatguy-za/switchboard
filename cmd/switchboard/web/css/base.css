@@ -1,0 +1,44 @@
+/* Base: reset, typography, focus, and a few layout utilities. Values come from tokens.css. */
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: var(--fw-regular) var(--fs-sm) / var(--lh-base) var(--font-ui);
+  font-feature-settings: "cv11", "ss03"; -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: var(--fs-2xl); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-tight); line-height: var(--lh-tight); }
+h2 { font-size: var(--fs-xl); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-snug); }
+h3 { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
+a { color: var(--acc); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, .mono { font-family: var(--font-mono); font-size: var(--fs-xs); }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: var(--r-sm); }
+::selection { background: var(--acc-soft); }
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* text colour and size helpers */
+.muted { color: var(--text-2); }
+.faint { color: var(--text-3); }
+.small { font-size: var(--fs-xs); }
+
+/* layout helpers */
+.grow { flex: 1; min-width: 0; }
+.stack { display: grid; gap: var(--s-8); }
+.row-gap { display: flex; gap: var(--s-4); align-items: center; flex-wrap: wrap; }
+.inline { display: flex; gap: var(--s-5); align-items: flex-end; flex-wrap: wrap; }
+.inline > label { flex: 1 1 var(--w-field-min); }
+.narrow { flex: 0 0 var(--w-narrow) !important; }
+.narrow.wider { flex-basis: var(--w-narrow-wide) !important; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-6); }
+
+/* icon rotations, for the one arrow icon */
+.flip, .rot-180 { transform: rotate(180deg); }
+.rot-90 { transform: rotate(90deg); }
+.rot-270 { transform: rotate(270deg); }
+
+@keyframes pop { from { opacity: 0; transform: translateY(var(--s-4)) scale(.985); } }
+@keyframes fade { from { opacity: 0; } }

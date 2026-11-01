@@ -2,19 +2,6 @@
 
 /* Hosts, the command palette, identities, and SSH terminals. Uses ui.js helpers and app.js (api, showView, refresh). */
 
-const XTERM_BASE = {
-  dark: {
-    background: '#0a0b0c', foreground: '#e8eaed', cursor: '#e8eaed', selectionBackground: 'rgba(111, 195, 165, .28)',
-    black: '#1b1d21', red: '#f0786b', green: '#6fc3a5', yellow: '#e3b563', blue: '#7aa7e8', magenta: '#c49be0', cyan: '#6dc7d4', white: '#c9ced6',
-    brightBlack: '#5b616b', brightRed: '#f59a8f', brightGreen: '#8fd8bd', brightYellow: '#edc983', brightBlue: '#9bbcf0', brightMagenta: '#d4b4ea', brightCyan: '#8ed8e2', brightWhite: '#f2f4f7',
-  },
-  light: {
-    background: '#fdfdfc', foreground: '#17181a', cursor: '#17181a', selectionBackground: 'rgba(42, 122, 93, .22)',
-    black: '#17181a', red: '#c4382b', green: '#2a7a5d', yellow: '#946507', blue: '#2f5fb3', magenta: '#8a4fb0', cyan: '#1f7f8c', white: '#8a8f97',
-    brightBlack: '#565b64', brightRed: '#d9544a', brightGreen: '#35906e', brightYellow: '#ad7a14', brightBlue: '#4678cc', brightMagenta: '#a066c7', brightCyan: '#2c96a5', brightWhite: '#17181a',
-  },
-  contrast: { background: '#000000', foreground: '#ffffff', cursor: '#ffffff', selectionBackground: '#555555' },
-};
 const DEFAULT_FONT = '"JetBrains Mono Variable", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace';
 
 // A workspace tab holds a tree of panes; each pane is one session (a terminal or a remote desktop).
@@ -25,10 +12,7 @@ const WS = {
 };
 const MAX_PANES = 6;
 
-function themeFor(name) {
-  if (name === 'auto') name = themeEffective();
-  return XTERM_BASE[name] || XTERM_BASE.dark;
-}
+const themeFor = name => xtermTheme(name);
 
 function termPrefs() {
   try { return Object.assign({ font: DEFAULT_FONT, size: 14 }, JSON.parse(localStorage.getItem('sb_term') || '{}')); }
@@ -47,7 +31,7 @@ function saveTermPrefs(p) {
 function paintTerminalTheme(sess) {
   const t = themeFor(sess.host.theme);
   sess.term.options.theme = t;
-  sess.holder.style.setProperty('--term-bg', t.background);
+  sess.holder.style.setProperty('--term-bg', t.background); // ds-allow: a per-host colour read from the tokens
 }
 themeListeners.push(() => allSessions().filter(s => s.kind !== 'rdp').forEach(paintTerminalTheme));
 
@@ -134,11 +118,6 @@ function renderTree() {
   if (!tree) return;
   const live = liveHostIds();
   WS.liveKey = [...live].sort().join(',');
-  const hostRow = (h, depth) => `
-    <div class="row host d${Math.min(depth, 6)}" tabindex="0" role="button" data-host="${esc(h.id)}" aria-label="Open ${esc(h.name)}">
-      ${icon(protoIcon(h))}<span class="name">${esc(h.name)}</span>${live.has(h.id) ? '<span class="dot live" title="Connected"></span>' : ''}
-      ${iconButton('dots', `Edit ${h.name}`, `data-edit-host="${esc(h.id)}"`, 'kebab')}
-    </div>`;
   if (!WS.hosts.length && !WS.folders.length) {
     tree.innerHTML = '<p class="faint tree-note">No hosts yet. Add one with the + above.</p>';
     return;
@@ -152,7 +131,7 @@ function renderTree() {
         ${iconButton('dots', `Edit folder ${f.name}`, `data-edit-folder="${esc(f.id)}"`, 'kebab')}</div>`;
       if (open) out += walk(f.id, depth + 1);
     }
-    for (const h of WS.hosts.filter(x => x.folder_id === parent).sort(byName)) out += hostRow(h, depth);
+    for (const h of WS.hosts.filter(x => x.folder_id === parent).sort(byName)) out += hostRow(h, { depth, live: live.has(h.id) });
     return out;
   };
   tree.innerHTML = walk('', 0);
@@ -604,7 +583,7 @@ function newSshSession(host, wtab) {
       ${iconButton('layout-columns', 'Split right', 'data-act="split-row"')}
       ${iconButton('layout-rows', 'Split down', 'data-act="split-col"')}
       ${iconButton('x', 'Close pane', 'data-act="close"')}</div>
-    <div class="fwdlist" hidden></div>
+    <div class="popover below-head fwdlist" hidden></div>
     <div class="term"></div>
     <div class="tover" hidden></div>`;
   const term = new Terminal({
@@ -618,7 +597,7 @@ function newSshSession(host, wtab) {
     holder: pane.querySelector('.term'), overlay: pane.querySelector('.tover'),
     sock: null, state: 'connecting', retries: 0, timer: null, closed: false, connectedBefore: false, opened: false, fwd: [],
   };
-  sess.holder.style.setProperty('--term-bg', themeFor(host.theme).background);
+  sess.holder.style.setProperty('--term-bg', themeFor(host.theme).background); // ds-allow: a per-host colour read from the tokens
   sess.ro = new ResizeObserver(() => requestAnimationFrame(() => fitSess(sess)));
   sess.ro.observe(sess.holder);
 
@@ -769,8 +748,8 @@ function buildNode(node) {
   const box = el('div', 'split dir-' + node.dir);
   const a = buildNode(node.a);
   const b = buildNode(node.b);
-  a.style.flex = `${node.ratio} 1 0`;
-  b.style.flex = `${1 - node.ratio} 1 0`;
+  a.style.flex = `${node.ratio} 1 0`; // ds-allow: the divider position is dynamic
+  b.style.flex = `${1 - node.ratio} 1 0`; // ds-allow: the divider position is dynamic
   const bar = el('div', 'divider dir-' + node.dir);
   bar.setAttribute('role', 'separator');
   bar.addEventListener('pointerdown', ev => dragDivider(ev, node, box, a, b));
@@ -784,8 +763,8 @@ function dragDivider(ev, node, box, a, b) {
   const move = e => {
     const r = node.dir === 'row' ? (e.clientX - rect.left) / rect.width : (e.clientY - rect.top) / rect.height;
     node.ratio = Math.min(0.9, Math.max(0.1, r));
-    a.style.flex = `${node.ratio} 1 0`;
-    b.style.flex = `${1 - node.ratio} 1 0`;
+    a.style.flex = `${node.ratio} 1 0`; // ds-allow: the divider position is dynamic
+    b.style.flex = `${1 - node.ratio} 1 0`; // ds-allow: the divider position is dynamic
   };
   window.addEventListener('pointermove', move);
   window.addEventListener('pointerup', () => { window.removeEventListener('pointermove', move); fitActive(); }, { once: true });
@@ -891,22 +870,20 @@ function renderTabs() {
 
 function renderIdentities() {
   if (!WS.ids) return;
-  const items = WS.identities.map(i => `
-    <div class="item">${icon('key', 'lg faint')}
-      <div class="what"><div class="title">${esc(i.name)}${tag(i.kind === 'rsa' ? 'RSA-4096' : 'Ed25519')}</div>
-        <div class="meta mono">${esc(i.fingerprint)}</div>
-        <div class="meta">${i.deployed.length ? `Pushed to ${esc(i.deployed.join(', '))}` : 'Not pushed to any host yet'}${i.comment ? ` · ${esc(i.comment)}` : ''}</div></div>
-      <div class="acts"><button type="button" class="sm" data-push="${esc(i.id)}">${icon('send')}Push to hosts</button>
-        ${iconButton('copy', 'Copy public key', `data-pub="${esc(i.id)}"`)}
-        ${iconButton('download', 'Export private key', `data-export="${esc(i.id)}"`)}
-        ${iconButton('trash', `Delete ${i.name}`, `data-delid="${esc(i.id)}"`)}</div></div>`).join('');
+  const items = WS.identities.map(i => itemRow({
+    lead: icon('key', 'lg faint'),
+    title: esc(i.name), tags: tag(i.kind === 'rsa' ? 'RSA-4096' : 'Ed25519'),
+    meta: `<div class="meta mono">${esc(i.fingerprint)}</div>
+      <div class="meta">${i.deployed.length ? `Pushed to ${esc(i.deployed.join(', '))}` : 'Not pushed to any host yet'}${i.comment ? ` \u00b7 ${esc(i.comment)}` : ''}</div>`,
+    actions: `${button('Push to hosts', { kind: 'sm', icon: 'send', attrs: `data-push="${esc(i.id)}"` })}
+      ${iconButton('copy', 'Copy public key', `data-pub="${esc(i.id)}"`)}
+      ${iconButton('download', 'Export private key', `data-export="${esc(i.id)}"`)}
+      ${iconButton('trash', `Delete ${i.name}`, `data-delid="${esc(i.id)}"`)}`,
+  })).join('');
   WS.ids.innerHTML = `<div class="page"><div class="page-in">
-    <div class="page-head"><div><h1>Identities</h1>
-        <p class="sub">SSH key pairs. Private keys stay encrypted in your vault and never reach the browser unless you export one.</p></div>
-      <div class="row-gap"><button type="button" id="id-import">${icon('upload')}Import key</button>
-        <button type="button" id="id-new" class="primary">${icon('plus')}New identity</button></div></div>
-    <div class="panel">${items || `<div class="empty-note"><h2>No identities yet</h2>
-      <p class="muted">Create one, then push it to your servers to sign in without a password.</p></div>`}</div>
+    ${pageHead('Identities', 'SSH key pairs. Private keys stay encrypted in your vault and never reach the browser unless you export one.',
+      `${button('Import key', { icon: 'upload', attrs: 'id="id-import"' })}${button('New identity', { kind: 'primary', icon: 'plus', attrs: 'id="id-new"' })}`)}
+    ${panel(items || emptyState('No identities yet', 'Create one, then push it to your servers to sign in without a password.'))}
   </div></div>`;
 }
 

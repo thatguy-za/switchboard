@@ -130,6 +130,12 @@ Everything has a working default. These are optional:
 | `SWITCHBOARD_TRANSFER_DIR` | `/tmp/switchboard-transfer` | scratch space for desktop file transfer |
 | `SWITCHBOARD_GUACD` | built in | `host:port` of a guacd elsewhere, instead of the bundled one |
 
+## Design system
+
+The interface is built from one set of tokens and components, enforced by tests. See
+[`docs/design-system.md`](docs/design-system.md), and open `/design.html` on a running instance for the
+living style guide.
+
 ## Images
 
 Multi-arch (amd64, arm64) images are published to `ghcr.io/thatguy-za/switchboard` on every push to `main` (`edge`) and every `v*` tag (`latest`, version tags).

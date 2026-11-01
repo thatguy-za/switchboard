@@ -1,0 +1,101 @@
+/* Layouts: how components are arranged into screens. Values come from tokens.css only. */
+
+/* ---------- sign in and setup ---------- */
+.auth { min-height: 100dvh; display: grid; place-items: center; padding: var(--s-12); }
+.auth-box { width: min(var(--w-auth), 100%); display: grid; gap: var(--s-11); animation: pop var(--dur-slow) var(--ease-out); }
+.wordmark { display: flex; align-items: center; gap: var(--s-5); font-size: var(--fs-lg); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-snug); }
+.wordmark .ic { width: var(--icon-xl); height: var(--icon-xl); color: var(--text); stroke-width: 1.6; }
+.auth-box .sub { color: var(--text-2); margin-top: var(--s-3); }
+.auth-box form { display: grid; gap: var(--s-7); }
+.auth-foot { display: flex; justify-content: space-between; align-items: center; font-size: var(--fs-xs); color: var(--text-2); }
+
+/* ---------- application shell ---------- */
+.shell { display: flex; height: 100dvh; }
+.side { width: var(--w-side); flex: none; display: flex; flex-direction: column; background: var(--surface-side); border-right: 1px solid var(--line); min-height: 0; }
+.side-head { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-7) var(--s-6) var(--s-2) var(--s-8); }
+.side-head .wordmark { flex: 1; font-size: var(--fs-md); }
+.side-head .wordmark .ic { width: var(--icon-lg); height: var(--icon-lg); }
+.find { display: flex; align-items: center; gap: var(--s-4); height: var(--h-field); margin: var(--s-5) var(--s-6) var(--s-6); padding: 0 var(--s-6); background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text-3); width: auto; justify-content: flex-start; font-weight: var(--fw-regular); }
+.find:hover { border-color: var(--line-strong); background: var(--surface-raised); }
+.find .grow { text-align: left; }
+.tree { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--s-4) var(--s-4); }
+.side-foot { padding: var(--s-4); border-top: 1px solid var(--line); display: grid; gap: 1px; }
+.me { display: flex; align-items: center; gap: var(--s-5); padding: var(--s-4) var(--s-3) var(--s-1) var(--s-5); color: var(--text-2); }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+.view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.topbar { display: none; align-items: center; gap: var(--s-4); height: var(--h-topbar); padding: 0 var(--s-5); border-bottom: 1px solid var(--line); background: var(--surface-side); }
+.scrim { display: none; }
+
+/* ---------- terminals and panes ---------- */
+.panes { flex: 1; min-height: 0; position: relative; background: var(--surface-term); }
+.layout { position: absolute; inset: 0; display: flex; }
+.cell { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; overflow: hidden; }
+.split { display: flex; flex: 1 1 0; min-width: 0; min-height: 0; }
+.split.dir-row { flex-direction: row; }
+.split.dir-col { flex-direction: column; }
+.divider { flex: none; background: var(--line); z-index: var(--z-divider); transition: background var(--dur-base) var(--ease-out); position: relative; }
+.divider.dir-row { width: 1px; cursor: col-resize; }
+.divider.dir-col { height: 1px; cursor: row-resize; }
+.divider::after { content: ""; position: absolute; }
+.divider.dir-row::after { inset: 0 calc(var(--hit) * -1); }
+.divider.dir-col::after { inset: calc(var(--hit) * -1) 0; }
+.divider:hover { background: var(--acc); }
+.pane { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.pane .term { position: relative; flex: 1; min-height: 0; padding: var(--s-4) 0 0 var(--s-6); background: var(--term-bg, var(--surface-term)); }
+.phead { display: flex; align-items: center; gap: var(--s-2); height: var(--h-phead); padding: 0 var(--s-3) 0 var(--s-6); border-bottom: 1px solid var(--line); background: var(--bg); font-size: var(--fs-xs); color: var(--text-3); flex: none; }
+.phead .pname { color: var(--text-2); font-weight: var(--fw-medium); margin-left: var(--s-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pane.on .phead .pname { color: var(--text); }
+.phead button { height: var(--h-icon-btn-sm); font-size: var(--fs-xs); }
+.phead button.icon { width: var(--h-icon-btn-sm); }
+.phead button.fwd { padding: 0 var(--s-4); gap: var(--s-3); color: var(--text-2); border: 0; background: transparent; }
+.phead button.fwd.bad { color: var(--danger); }
+.phead .dot { margin-right: var(--s-1); }
+.phead button.news::after { content: ""; width: var(--s-3); height: var(--s-3); border-radius: 50%; background: var(--acc); margin-left: var(--s-2); }
+
+/* the empty workspace */
+.welcome { position: absolute; inset: 0; display: grid; place-items: center; padding: var(--s-12); overflow: auto; }
+.welcome-in { width: min(var(--w-welcome), 100%); display: grid; gap: var(--s-11); justify-items: start; }
+.welcome .recent { width: 100%; display: grid; gap: 1px; }
+.welcome .recent .row { height: var(--h-control-lg); padding: 0 var(--s-5); }
+.welcome .hint { display: flex; align-items: center; gap: var(--s-3); color: var(--text-3); }
+.welcome .sub { margin-top: var(--s-2); }
+
+/* touch key bar */
+.keybar { display: none; gap: var(--s-3); padding: var(--s-4); background: var(--surface-side); border-top: 1px solid var(--line); flex: none; }
+.keybar button { flex: 1; height: var(--h-key); padding: 0; }
+.keybar button.on { background: var(--acc); color: var(--acc-ink); border-color: transparent; }
+@media (pointer: coarse), (max-width: 760px) { .keybar { display: flex; } }
+
+/* ---------- remote desktop ---------- */
+.rdpwrap { position: relative; flex: 1; min-height: 0; background: var(--desktop-bg); overflow: hidden; }
+.rdpscreen { position: absolute; top: 0; left: 0; touch-action: none; }
+.sink { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; resize: none; font-size: var(--fs-xl); }
+
+/* ---------- pages ---------- */
+.page { flex: 1; min-height: 0; overflow: auto; padding: var(--s-16) clamp(var(--s-10), 4vw, var(--s-24)) var(--s-30); }
+.page-in { max-width: var(--w-page); margin: 0 auto; display: grid; gap: var(--s-13); align-content: start; }
+.settings { display: grid; grid-template-columns: var(--w-subnav) minmax(0, 1fr); gap: var(--s-16); align-items: start; }
+
+/* ---------- small screens (the breakpoint is 760px everywhere) ---------- */
+@media (max-width: 760px) {
+  .topbar { display: flex; }
+  .side { position: fixed; z-index: var(--z-drawer); inset: 0 auto 0 0; width: min(var(--w-drawer), 86vw); transform: translateX(-102%); transition: transform var(--dur-slow) var(--ease-out); }
+  .side.open { transform: none; box-shadow: var(--shadow-lg); }
+  .scrim.show { display: block; position: fixed; inset: 0; z-index: var(--z-scrim); background: var(--overlay); }
+  .shell { flex-direction: column; height: 100dvh; }
+  .main { flex: 1; min-height: 0; }
+  .split.dir-row { flex-direction: column; }
+  .divider { display: none; }
+  .phead button[data-act^=split] { display: none; }
+  .settings { grid-template-columns: 1fr; gap: var(--s-8); }
+  .subnav { display: flex; overflow-x: auto; position: static; gap: var(--s-2); }
+  .subnav button { flex: none; }
+  .setting { flex-wrap: wrap; }
+  .setting .ctl { justify-content: flex-start; }
+  .page { padding-top: var(--s-12); }
+  .frow { grid-template-columns: 1fr 1fr; }
+  .frow > span { display: none; }
+  .tabs { padding: 0 var(--s-3); }
+  dialog { margin: auto auto var(--s-6); }
+  dialog.palette { margin: 8vh auto auto; }
+}

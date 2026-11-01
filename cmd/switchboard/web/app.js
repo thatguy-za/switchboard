@@ -113,7 +113,7 @@ function viewRecoveryKey(key) {
     <div><h1>Save your recovery key</h1>
       <p class="sub">It is the only way to unlock your vault if you forget your password, and it is shown once. Without it, a lost password means the vault's contents are gone.</p></div>
     <form id="f">
-      <p class="codeblock">${esc(key)}</p>
+      ${codeBlock(key)}
       <label class="check"><input type="checkbox" name="saved" required> I have stored this key somewhere safe</label>
       <div class="row-gap"><button type="button" id="copy" class="quiet">${icon('copy')}Copy</button><span class="grow"></span><button class="primary">Continue</button></div>
     </form>`));
@@ -194,7 +194,7 @@ async function viewTwoFactorSetup() {
     <div><h1>Set up two-factor authentication</h1><p class="sub">An admin requires it for all accounts. Scan the code with an authenticator app.</p></div>
     <form id="f">
       <img class="qr" src="${info.qr}" width="200" height="200" alt="QR code for your authenticator app">
-      <div><p class="small muted">Can't scan? Enter this key by hand:</p><p class="codeblock">${esc(info.secret)}</p></div>
+      <div><p class="small muted">Can't scan? Enter this key by hand:</p>${codeBlock(info.secret)}</div>
       <label>Code from the app<input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" required></label>
       <p class="err"></p>
       <button class="primary block">Turn on two-factor</button>
@@ -211,7 +211,7 @@ function viewBackupCodes(codes) {
   show(authPage(`
     <div><h1>Backup codes</h1><p class="sub">Each code works once if you lose your authenticator. They are shown only now.</p></div>
     <form id="f">
-      <div class="codes">${codes.map(c => `<span>${esc(c)}</span>`).join('')}</div>
+      ${codeGrid(codes)}
       <label class="check"><input type="checkbox" name="saved" required> I have saved these codes</label>
       <div class="row-gap"><button type="button" id="copy" class="quiet">${icon('copy')}Copy</button><span class="grow"></span><button class="primary">Done</button></div>
     </form>`));
@@ -223,7 +223,7 @@ function viewBackupCodes(codes) {
 
 function recoveryKeyDialog(key) {
   const d = dialog('Save your recovery key', `
-    <p class="codeblock">${esc(key)}</p>
+    ${codeBlock(key)}
     <label class="check"><input type="checkbox" name="saved" required> I have stored this key somewhere safe</label>`, {
     description: 'It is the only way to unlock your vault if you forget your password, and it is shown once.',
     submitLabel: 'Continue', extra: '<button type="button" class="quiet" data-copy>Copy</button>', onSubmit: () => {},
@@ -232,7 +232,7 @@ function recoveryKeyDialog(key) {
 }
 
 function backupCodesDialog(codes) {
-  const d = dialog('Backup codes', `<div class="codes">${codes.map(c => `<span>${esc(c)}</span>`).join('')}</div>
+  const d = dialog('Backup codes', `${codeGrid(codes)}
     <label class="check"><input type="checkbox" name="saved" required> I have saved these codes</label>`, {
     description: 'Each code works once if you lose your authenticator. They are shown only now.',
     submitLabel: 'Done', extra: '<button type="button" class="quiet" data-copy>Copy</button>', onSubmit: () => {},
@@ -258,7 +258,7 @@ async function twoFactorSetupDialog() {
   try { info = await api('POST', '/2fa/setup'); } catch (e) { toast(e.message, 'err'); return; }
   dialog('Set up two-factor authentication', `
     <img class="qr" src="${info.qr}" width="188" height="188" alt="QR code for your authenticator app">
-    <div><p class="small muted">Can't scan? Enter this key by hand:</p><p class="codeblock">${esc(info.secret)}</p></div>
+    <div><p class="small muted">Can't scan? Enter this key by hand:</p>${codeBlock(info.secret)}</div>
     <label>Code from the app<input type="text" name="code" inputmode="numeric" autocomplete="one-time-code" required></label>`, {
     description: 'Scan the code with an authenticator app, then enter the 6-digit code it shows.', submitLabel: 'Turn on',
     onSubmit: async fd => {
@@ -364,7 +364,7 @@ function renderSettings() {
   if (admin) tabs.push(['users', 'Users', 'users'], ['server', 'Server', 'server']);
   if (!tabs.some(t => t[0] === settingsTab)) settingsTab = 'account';
   root.innerHTML = `<div class="page"><div class="page-in">
-    <div class="page-head"><div><h1>Settings</h1><p class="sub">Your account, security and how Switchboard looks.</p></div></div>
+    ${pageHead('Settings', 'Your account, security and how Switchboard looks.')}
     <div class="settings">
       <nav class="subnav" aria-label="Settings sections">${tabs.map(([id, label, ic]) =>
         `<button type="button" data-tab="${id}"${id === settingsTab ? ' aria-current="page"' : ''}>${icon(ic)}${label}</button>`).join('')}</nav>
@@ -382,8 +382,6 @@ function renderSettings() {
   renderSettingsBody();
 }
 
-const setting = (title, desc, ctl) => `<div class="setting"><div class="what"><div class="title">${title}</div>${desc ? `<div class="desc">${desc}</div>` : ''}</div><div class="ctl">${ctl}</div></div>`;
-
 async function renderSettingsBody() {
   const body = $('#settings-body', shell);
   if (!body) return;
@@ -391,20 +389,18 @@ async function renderSettingsBody() {
   const bind = (sel, fn) => { const b = body.querySelector(sel); if (b) b.addEventListener('click', fn); };
 
   if (settingsTab === 'account') {
-    body.innerHTML = `<div class="panel">
-      ${setting('Signed in as', 'Your name on this Switchboard.', `${tag(u.role === 'admin' ? 'Admin' : 'Member', u.role === 'admin' ? 'acc' : '')}<strong>${esc(u.username)}</strong>`)}
-      ${setting('Password', 'Changing it keeps your vault and everything saved in it readable.', '<button id="pw">Change password</button>')}
-      ${setting('Sign out everywhere', 'Ends your sessions on every device, including this one.', '<button id="all">Sign out everywhere</button>')}
-    </div>`;
+    body.innerHTML = panel(
+      settingRow('Signed in as', 'Your name on this Switchboard.', `${tag(u.role === 'admin' ? 'Admin' : 'Member', u.role === 'admin' ? 'acc' : '')}<strong>${esc(u.username)}</strong>`) +
+      settingRow('Password', 'Changing it keeps your vault and everything saved in it readable.', button('Change password', { attrs: 'id="pw"' })) +
+      settingRow('Sign out everywhere', 'Ends your sessions on every device, including this one.', button('Sign out everywhere', { attrs: 'id="all"' })));
     bind('#pw', changePasswordDialog);
     bind('#all', signOutEverywhere);
   } else if (settingsTab === 'security') {
     const left = u.backup_codes_left;
-    body.innerHTML = `<div class="panel">${u.totp_enabled
-      ? setting('Two-factor authentication', `On. ${left} backup code${left === 1 ? '' : 's'} left.`,
-        `<button id="codes">New backup codes</button>${state.require_2fa ? '' : '<button id="off" class="danger">Turn off</button>'}`)
-      : setting('Two-factor authentication', 'Ask for a code from an authenticator app when you sign in.', '<button id="on" class="primary">Set up</button>')}
-    </div>`;
+    body.innerHTML = panel(u.totp_enabled
+      ? settingRow('Two-factor authentication', `On. ${left} backup code${left === 1 ? '' : 's'} left.`,
+        button('New backup codes', { attrs: 'id="codes"' }) + (state.require_2fa ? '' : button('Turn off', { kind: 'danger', attrs: 'id="off"' })))
+      : settingRow('Two-factor authentication', 'Ask for a code from an authenticator app when you sign in.', button('Set up', { kind: 'primary', attrs: 'id="on"' })));
     bind('#on', twoFactorSetupDialog);
     bind('#codes', () => passwordDialog('New backup codes', 'Your old codes stop working once you make new ones.', 'Make new codes', async password => {
       const r = await api('POST', '/2fa/backup-codes', { password });
@@ -418,15 +414,12 @@ async function renderSettingsBody() {
     }));
   } else if (settingsTab === 'appearance') {
     const prefs = termPrefs();
-    const choice = themeChoice();
     const fonts = [['Switchboard mono', DEFAULT_FONT], ['System monospace', 'ui-monospace, Menlo, Consolas, monospace'], ['Menlo', 'Menlo, monospace'], ['Consolas', 'Consolas, monospace'], ['Courier New', '"Courier New", monospace']];
-    body.innerHTML = `<div class="panel">
-      ${setting('Theme', 'Follows your system unless you choose one.', `<div class="seg" role="group" aria-label="Theme">${[['system', 'System', 'device-laptop'], ['light', 'Light', 'sun'], ['dark', 'Dark', 'moon']]
-        .map(([id, label, ic]) => `<button type="button" data-theme="${id}" aria-pressed="${id === choice}">${icon(ic)}${label}</button>`).join('')}</div>`)}
-      ${setting('Terminal font', 'Saved in this browser. Colours are set per host.', `
+    body.innerHTML = panel(
+      settingRow('Theme', 'Follows your system unless you choose one.', segmented('Theme', [['system', 'System', 'device-laptop'], ['light', 'Light', 'sun'], ['dark', 'Dark', 'moon']], themeChoice(), 'data-theme')) +
+      settingRow('Terminal font', 'Saved in this browser. Colours are set per host.', `
         <select id="font" aria-label="Terminal font">${fonts.map(f => `<option value='${esc(f[1])}'${f[1] === prefs.font ? ' selected' : ''}>${esc(f[0])}</option>`).join('')}</select>
-        <input id="size" type="number" min="10" max="28" value="${esc(prefs.size)}" aria-label="Font size" class="narrow">`)}
-    </div>`;
+        <input id="size" type="number" min="10" max="28" value="${esc(prefs.size)}" aria-label="Font size" class="narrow">`));
     body.querySelector('.seg').addEventListener('click', ev => {
       const b = ev.target.closest('[data-theme]');
       if (!b) return;
@@ -437,19 +430,22 @@ async function renderSettingsBody() {
     $('#font', body).addEventListener('change', save);
     $('#size', body).addEventListener('change', save);
   } else if (settingsTab === 'users') {
-    body.innerHTML = '<p class="muted">Loading…</p>';
+    body.innerHTML = '<p class="muted">Loading\u2026</p>';
     let users;
     try { users = await api('GET', '/admin/users'); } catch (e) { body.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
     if (settingsTab !== 'users') return;
+    const rows = users.map(x => itemRow({
+      lead: avatar(x.username),
+      title: `${esc(x.username)}${x.id === u.id ? ' <span class="faint">(you)</span>' : ''}`,
+      tags: `${tag(x.role === 'admin' ? 'Admin' : 'Member', x.role === 'admin' ? 'acc' : '')}${x.totp_enabled ? tag('2FA on') : ''}${x.must_change ? tag('Temporary password', 'warn') : ''}`,
+      actions: (x.totp_enabled ? iconButton('shield-lock', `Reset two-factor for ${x.username}`, `data-reset="${esc(x.id)}" data-name="${esc(x.username)}"`) : '') +
+        (x.id === u.id ? '' : iconButton('trash', `Delete ${x.username}`, `data-del="${esc(x.id)}" data-name="${esc(x.username)}"`)),
+    })).join('');
     body.innerHTML = `<div class="stack">
-      <div class="section-head"><h2>People</h2><button id="add" class="primary">${icon('plus')}Add user</button></div>
-      <div class="panel">${users.map(x => `<div class="item">${avatar(x.username)}
-        <div class="what"><div class="title">${esc(x.username)}${x.id === u.id ? ' <span class="faint">(you)</span>' : ''}
-          ${tag(x.role === 'admin' ? 'Admin' : 'Member', x.role === 'admin' ? 'acc' : '')}${x.totp_enabled ? tag('2FA on') : ''}${x.must_change ? tag('Temporary password', 'warn') : ''}</div></div>
-        <div class="acts">${x.totp_enabled ? iconButton('shield-lock', `Reset two-factor for ${x.username}`, `data-reset="${esc(x.id)}" data-name="${esc(x.username)}"`) : ''}
-          ${x.id === u.id ? '' : iconButton('trash', `Delete ${x.username}`, `data-del="${esc(x.id)}" data-name="${esc(x.username)}"`)}</div></div>`).join('')}</div>
-      <div class="panel">${setting('Require two-factor authentication', 'Everyone must set it up the next time they sign in.',
-        `<label class="switch"><input type="checkbox" id="req2fa" ${state.require_2fa ? 'checked' : ''} aria-label="Require two-factor authentication"><span></span></label>`)}</div></div>`;
+      ${sectionHead('People', button('Add user', { kind: 'primary', icon: 'plus', attrs: 'id="add"' }))}
+      ${panel(rows)}
+      ${panel(settingRow('Require two-factor authentication', 'Everyone must set it up the next time they sign in.', switchControl({ id: 'req2fa', checked: state.require_2fa, label: 'Require two-factor authentication' })))}
+    </div>`;
     bind('#add', addUserDialog);
     body.querySelectorAll('[data-reset]').forEach(b => b.addEventListener('click', () =>
       confirmDialog('Reset two-factor?', `${b.dataset.name} will be signed out and can set it up again.`, 'Reset', async () => {
@@ -468,12 +464,12 @@ async function renderSettingsBody() {
       catch (e) { ev.target.checked = !ev.target.checked; toast(e.message, 'err'); }
     });
   } else if (settingsTab === 'server') {
-    body.innerHTML = `<div class="stack">${state.key_backup_pending ? `<div class="notice">${icon('alert-triangle')}<div><strong>Back up the master key.</strong>
-        <div class="muted">If it is lost, no vault can be opened. Download a copy and keep it away from this server.</div></div></div>` : ''}
-      <div class="panel">
-        ${setting('Master key', 'Generated when Switchboard first started. Every stored secret is encrypted with it.', '<button id="key" class="primary">' + icon('download') + 'Download key</button>')}
-        ${setting('Backup confirmed', 'Turn this on once the key is stored safely. It clears the reminder.', `<label class="switch"><input type="checkbox" id="keydone" ${state.key_backup_pending ? '' : 'checked disabled'} aria-label="Backup confirmed"><span></span></label>`)}
-      </div></div>`;
+    body.innerHTML = `<div class="stack">
+      ${state.key_backup_pending ? notice('alert-triangle', '<strong>Back up the master key.</strong><div class="muted">If it is lost, no vault can be opened. Download a copy and keep it away from this server.</div>') : ''}
+      ${panel(
+        settingRow('Master key', 'Generated when Switchboard first started. Every stored secret is encrypted with it.', button('Download key', { kind: 'primary', icon: 'download', attrs: 'id="key"' })) +
+        settingRow('Backup confirmed', 'Turn this on once the key is stored safely. It clears the reminder.', switchControl({ id: 'keydone', checked: !state.key_backup_pending, disabled: !state.key_backup_pending, label: 'Backup confirmed' })))}
+    </div>`;
     bind('#key', () => passwordDialog('Download the master key', 'Enter your password to download it.', 'Download', async password => {
       const r = await api('POST', '/admin/master-key', { password });
       const url = URL.createObjectURL(new Blob([r.master_key + '\n'], { type: 'text/plain' }));
@@ -482,8 +478,7 @@ async function renderSettingsBody() {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       toast('Master key downloaded');
     }));
-    const done = $('#keydone', body);
-    done.addEventListener('change', async ev => {
+    $('#keydone', body).addEventListener('change', async ev => {
       if (!ev.target.checked) return;
       await api('POST', '/admin/key-backup-confirmed');
       state.key_backup_pending = false;

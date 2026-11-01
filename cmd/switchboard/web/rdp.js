@@ -8,7 +8,7 @@ const DIR_TYPE = 'application/vnd.glyptodon.guacamole.stream-index+json';
 const WEB_SESSION_ENDED = 4401;
 
 function newRdpSession(host, wtab) {
-  const pane = el('div', 'pane rdp');
+  const pane = el('div', 'pane');
   pane.innerHTML = `
     <div class="phead"><span class="dot"></span><span class="pname"></span><span class="grow"></span>
       <button type="button" class="quiet fwd" data-act="fwd" hidden></button>
@@ -19,18 +19,18 @@ function newRdpSession(host, wtab) {
       ${iconButton('layout-columns', 'Split right', 'data-act="split-row"')}
       ${iconButton('layout-rows', 'Split down', 'data-act="split-col"')}
       ${iconButton('x', 'Close pane', 'data-act="close"')}</div>
-    <div class="fwdlist" hidden></div>
+    <div class="popover below-head fwdlist" hidden></div>
     <div class="rdpwrap">
       <div class="rdpscreen"></div>
       <textarea class="sink" aria-label="Remote desktop keyboard input" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
-      <div class="rpanel clip" hidden>
+      <div class="popover clip" hidden>
         <div class="section-head"><h3>Clipboard</h3>${iconButton('x', 'Close', 'data-clip="close"')}</div>
         <p class="small muted">Text copied on the remote desktop shows up here. To paste into it, press Ctrl+V as usual, or type here and send.</p>
         <textarea class="cliptext" rows="5" aria-label="Clipboard text"></textarea>
         <div class="actions"><button type="button" class="primary sm" data-clip="send">Send to remote</button>
           <button type="button" class="sm" data-clip="copy">${icon('copy')}Copy</button></div>
       </div>
-      <div class="rpanel files" hidden>
+      <div class="popover files" hidden>
         <div class="section-head"><h3>Files</h3>${iconButton('x', 'Close', 'data-file="close"')}</div>
         <p class="small muted">Files appear on the remote desktop as the \u201cSwitchboard\u201d drive. They last only as long as this session.</p>
         <input type="file" class="fileinput" multiple aria-label="Choose files to upload">
@@ -44,8 +44,8 @@ function newRdpSession(host, wtab) {
   const sess = {
     kind: 'rdp', host, wtab, pane, head: pane.querySelector('.phead'), fwdList: pane.querySelector('.fwdlist'),
     holder: pane.querySelector('.rdpwrap'), screen: pane.querySelector('.rdpscreen'), sink: pane.querySelector('.sink'),
-    clipPanel: pane.querySelector('.rpanel.clip'), clipArea: pane.querySelector('.cliptext'),
-    filePanel: pane.querySelector('.rpanel.files'), overlay: pane.querySelector('.tover'),
+    clipPanel: pane.querySelector('.popover.clip'), clipArea: pane.querySelector('.cliptext'),
+    filePanel: pane.querySelector('.popover.files'), overlay: pane.querySelector('.tover'),
     client: null, tunnel: null, state: 'connecting', retries: 0, timer: null, closed: false, connectedBefore: false,
     opened: false, fwd: [], fsObj: null, fsPath: '/', ctrlDown: false, pendingPaste: false, suppressV: false,
     sentW: 0, sentH: 0, resizeTimer: null,
@@ -139,7 +139,7 @@ function rdpOpen(sess) {
   // A real click moves focus to the page after the mouse handlers run, so take it back once the
   // click is done. Without this, typing right after clicking the desktop would go nowhere.
   sess.holder.addEventListener('click', ev => {
-    if (!ev.target.closest('.rpanel')) sess.sink.focus({ preventScroll: true });
+    if (!ev.target.closest('.popover')) sess.sink.focus({ preventScroll: true });
   });
   const mouse = new Guacamole.Mouse(sess.screen);
   mouse.onEach(['mousedown', 'mouseup', 'mousemove'], pointer);
@@ -185,7 +185,7 @@ function rdpConnect(sess) {
   const display = client.getDisplay();
   sess.screen.replaceChildren(display.getElement());
   display.showCursor(false);
-  display.oncursor = (canvas, x, y) => { sess.screen.style.cursor = `url(${canvas.toDataURL('image/png')}) ${x} ${y}, auto`; };
+  display.oncursor = (canvas, x, y) => { sess.screen.style.cursor = `url(${canvas.toDataURL('image/png')}) ${x} ${y}, auto`; };  // ds-allow: the remote cursor image
   display.onresize = () => rdpScale(sess);
 
   client.onstatechange = st => {

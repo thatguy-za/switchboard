@@ -16,6 +16,7 @@ const dlg = () => page.locator('dialog[open]');
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  page.on('response', r => { if (r.status() >= 400 && !r.url().includes('/api/')) errors.push(`http ${r.status()} ${r.url()}`); });
 
   await step('setup page', async () => { await page.goto('/'); await page.waitForSelector('form'); await snap('00-setup'); });
   await step('create account', async () => {
@@ -155,6 +156,14 @@ const dlg = () => page.locator('dialog[open]');
     await page.waitForSelector('dialog[open]');
     await snap('30-light-host-edit');
     await dlg().locator('[data-cancel]').first().click();
+  });
+
+  await step('style guide', async () => {
+    await page.goto('/design.html'); await page.waitForSelector('#c-button');
+    await page.waitForFunction(() => document.fonts.check('13px "Inter Variable"'));
+    await page.screenshot({ path: `${OUT}/50-design-light.png`, fullPage: true });
+    await page.evaluate(() => setThemeChoice('dark'));
+    await page.screenshot({ path: `${OUT}/51-design-dark.png`, fullPage: true });
   });
 
   // phone

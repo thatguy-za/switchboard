@@ -13,7 +13,7 @@ cleanup
 
 docker build -q -t switchboard:ui-test .
 docker network create "$NET" >/dev/null
-docker run -d --name sbui-test-ssh --network "$NET" -e PUID=1000 -e PGID=1000 -e USER_NAME=tester \
+docker run -d --name sbui-test-ssh --network "$NET" --network-alias sbui-ssh -e PUID=1000 -e PGID=1000 -e USER_NAME=tester \
   -e USER_PASSWORD=testpass-123 -e PASSWORD_ACCESS=true lscr.io/linuxserver/openssh-server:latest >/dev/null
 docker run -d --name sbui-test-app --network "$NET" --network-alias switchboard switchboard:ui-test >/dev/null
 sleep 8
