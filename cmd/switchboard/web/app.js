@@ -2,6 +2,8 @@
 
 const app = document.getElementById('app');
 let state = null;
+let shell = null;    // the signed-in workspace, built once so open terminals survive
+let overlay = null;  // full-screen cards (password change, 2FA) shown over the workspace
 
 const messages = {
   invalid_credentials: 'Wrong username or password.',
@@ -28,6 +30,7 @@ async function api(method, path, body) {
   let data = {};
   try { data = await res.json(); } catch (e) { /* empty body */ }
   if (!res.ok) {
+    if (res.status === 401 && data.error === 'unauthorized' && shell) refresh();
     const err = new Error(messages[data.error] || 'Something went wrong.');
     err.code = data.error;
     err.status = res.status;
@@ -40,12 +43,20 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-const $ = (sel, root = app) => root.querySelector(sel);
+const $ = (sel, root) => (root || (overlay && !overlay.hidden ? overlay : app)).querySelector(sel);
 
 function show(html) {
-  app.innerHTML = html;
-  const first = app.querySelector('input:not([type=checkbox])');
+  const target = shell ? overlay : app;
+  if (shell) overlay.hidden = false;
+  target.innerHTML = html;
+  const first = target.querySelector('input:not([type=checkbox])');
   if (first) first.focus();
+}
+
+function closeOverlay() {
+  if (!overlay) return;
+  overlay.hidden = true;
+  overlay.innerHTML = '';
 }
 
 // Bind a form: handler gets the field values keyed by name; thrown errors show under the form.
@@ -82,11 +93,12 @@ async function refresh() {
 
 function route() {
   const u = state.user;
+  if (shell && !(u && !u.must_change && !u.needs_2fa_setup)) teardownShell();
   if (!state.setup_done) return viewSetup();
   if (!u) return viewLogin();
   if (u.must_change) return viewChangePassword(true);
   if (u.needs_2fa_setup) return viewTwoFactorSetup(true);
-  viewHome();
+  if (shell) { closeOverlay(); renderSettings(); updateNav(); } else buildShell();
 }
 
 function card(title, inner, wide) {
@@ -183,7 +195,7 @@ function viewChangePassword(forced) {
       <p class="err"></p>
     </form>`));
   const out = $('#out'); if (out) out.addEventListener('click', signOut);
-  const back = $('#back'); if (back) back.addEventListener('click', viewHome);
+  const back = $('#back'); if (back) back.addEventListener('click', closeOverlay);
   onSubmit('#f', async v => {
     const r = await api('POST', '/password', v);
     if (r.recovery_key) return viewRecoveryKey(r.recovery_key);
@@ -237,15 +249,66 @@ async function signOutEverywhere() {
   await refresh();
 }
 
-function viewHome() {
+function teardownShell() {
+  destroyWorkspace();
+  shell = null;
+  overlay = null;
+}
+
+function buildShell() {
+  app.innerHTML = `
+    <div id="shell">
+      <header>
+        <strong>Switchboard</strong>
+        <nav id="nav">
+          <button data-view="terminals">Terminals</button>
+          <button data-view="identities">Identities</button>
+          <button data-view="settings">Settings<span id="navflag" class="flag" hidden>!</span></button>
+        </nav>
+        <div class="who"><span class="muted" id="whoami"></span><button id="out">Sign out</button></div>
+      </header>
+      <div id="view-terminals" class="view"></div>
+      <div id="view-identities" class="view" hidden></div>
+      <div id="view-settings" class="view" hidden></div>
+    </div>
+    <div id="overlay" class="overlay" hidden></div>`;
+  shell = $('#shell', app);
+  overlay = $('#overlay', app);
+  $('#nav', shell).addEventListener('click', ev => {
+    const b = ev.target.closest('[data-view]');
+    if (b) showView(b.dataset.view);
+  });
+  $('#out', shell).addEventListener('click', signOut);
+  mountWorkspace($('#view-terminals', shell), $('#view-identities', shell));
+  renderSettings();
+  updateNav();
+  showView('terminals');
+}
+
+function showView(name) {
+  if (!shell) return;
+  for (const v of ['terminals', 'identities', 'settings']) {
+    $('#view-' + v, shell).hidden = v !== name;
+  }
+  shell.querySelectorAll('#nav [data-view]').forEach(b => {
+    b.setAttribute('aria-current', b.dataset.view === name ? 'page' : 'false');
+  });
+  if (name === 'terminals') requestAnimationFrame(() => { fitActive(); if (WS.active) WS.active.term.focus(); });
+}
+
+function updateNav() {
+  const u = state.user;
+  $('#whoami', shell).textContent = u.username + (u.role === 'admin' ? ' (admin)' : '');
+  $('#navflag', shell).hidden = !(u.role === 'admin' && state.key_backup_pending);
+}
+
+function renderSettings() {
   const u = state.user;
   const isAdmin = u.role === 'admin';
-  show(`
-    <header>
-      <strong>Switchboard</strong>
-      <div class="who"><span class="muted">${esc(u.username)}${isAdmin ? ' (admin)' : ''}</span>
-        <button id="out">Sign out</button></div>
-    </header>
+  const prefs = termPrefs();
+  const root = $('#view-settings', shell);
+  const fonts = [['System monospace', DEFAULT_FONT], ['Menlo', 'Menlo, monospace'], ['Consolas', 'Consolas, monospace'], ['Courier New', '"Courier New", monospace']];
+  root.innerHTML = `
     <main>
       ${isAdmin && state.key_backup_pending ? `
       <div class="banner" id="keybanner">
@@ -258,17 +321,27 @@ function viewHome() {
         <p class="err" id="keyerr"></p>
         <label class="check"><input type="checkbox" id="keydone"> I have stored the key safely</label>
       </div>` : ''}
-      <section><h2>Hosts</h2><p class="muted">No hosts yet. SSH and RDP connections are not built yet.</p></section>
       <section id="account"><h2>Account</h2>
         <div class="actions"><button id="pw">Change password</button>
           <button id="all">Sign out everywhere</button></div>
         ${twoFactorBlock(u)}
       </section>
+      <section><h2>Terminal</h2>
+        <form id="prefs" class="inline">
+          <label>Font<select name="font">${fonts.map(f => `<option value='${esc(f[1])}'${f[1] === prefs.font ? ' selected' : ''}>${esc(f[0])}</option>`).join('')}</select></label>
+          <label class="narrow">Size<input type="number" name="size" min="10" max="28" value="${esc(prefs.size)}"></label>
+        </form>
+        <p class="muted">Saved in this browser. Colours are set per host.</p>
+      </section>
       ${isAdmin ? '<section id="admin"><h2>Users</h2><div id="users">Loading…</div></section>' : ''}
-    </main>`);
-  $('#out').addEventListener('click', signOut);
-  $('#pw').addEventListener('click', () => viewChangePassword(false));
-  $('#all').addEventListener('click', signOutEverywhere);
+    </main>`;
+  $('#pw', root).addEventListener('click', () => viewChangePassword(false));
+  $('#all', root).addEventListener('click', signOutEverywhere);
+  const prefsForm = $('#prefs', root);
+  prefsForm.addEventListener('change', () => {
+    const size = Math.min(28, Math.max(10, Number(prefsForm.size.value) || 14));
+    saveTermPrefs({ font: prefsForm.font.value, size });
+  });
   bindTwoFactor(u);
   if (isAdmin) { bindKeyBackup(); loadUsers(); }
 }

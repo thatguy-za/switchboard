@@ -100,6 +100,20 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/2fa/disable", s.auth(true, s.handle2FADisable))
 	mux.HandleFunc("POST /api/2fa/backup-codes", s.auth(true, s.handleBackupCodes))
 
+	mux.HandleFunc("GET /api/hosts", s.auth(true, s.handleListHosts))
+	mux.HandleFunc("POST /api/hosts", s.auth(true, s.handleCreateHost))
+	mux.HandleFunc("PUT /api/hosts/{id}", s.auth(true, s.handleUpdateHost))
+	mux.HandleFunc("DELETE /api/hosts/{id}", s.auth(true, s.handleDeleteHost))
+	mux.HandleFunc("POST /api/folders", s.auth(true, s.handleCreateFolder))
+	mux.HandleFunc("PUT /api/folders/{id}", s.auth(true, s.handleUpdateFolder))
+	mux.HandleFunc("DELETE /api/folders/{id}", s.auth(true, s.handleDeleteFolder))
+	mux.HandleFunc("GET /api/identities", s.auth(true, s.handleListIdentities))
+	mux.HandleFunc("POST /api/identities/generate", s.auth(true, s.handleGenerateIdentity))
+	mux.HandleFunc("POST /api/identities/import", s.auth(true, s.handleImportIdentity))
+	mux.HandleFunc("DELETE /api/identities/{id}", s.auth(true, s.handleDeleteIdentity))
+	mux.HandleFunc("POST /api/identities/{id}/export", s.auth(true, s.handleExportIdentity))
+	mux.HandleFunc("GET /api/ws/ssh/{id}", s.auth(true, s.handleSSH))
+
 	mux.HandleFunc("GET /api/admin/users", s.admin(s.handleListUsers))
 	mux.HandleFunc("POST /api/admin/users", s.admin(s.handleCreateUser))
 	mux.HandleFunc("DELETE /api/admin/users/{id}", s.admin(s.handleDeleteUser))
@@ -117,7 +131,7 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) secure(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
-		h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
+		h.Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'")
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("Referrer-Policy", "no-referrer")
 		if strings.HasPrefix(r.URL.Path, "/api/") {

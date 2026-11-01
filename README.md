@@ -10,6 +10,16 @@ docker compose up -d
 
 Then open http://localhost:8080.
 
+## SSH
+
+Add hosts (optionally in nested folders), sign in with a saved password or an SSH identity, and open
+terminals in browser tabs. Press Ctrl+K to search hosts. Host keys are trusted on first use; if a
+server's key later changes, the tab blocks with a warning until you explicitly accept the new key.
+Dropped connections reconnect automatically. Credentials are decrypted on the server at connect
+time and are never sent to the browser. Private keys leave only through an explicit, password-confirmed export.
+
+xterm.js 5.5.0 and its fit addon are vendored in `cmd/switchboard/web/vendor`, so the page loads nothing from a CDN.
+
 ## Master key
 
 On first start Switchboard generates a master key in the `/keys` volume. Every stored
