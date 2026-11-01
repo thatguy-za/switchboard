@@ -111,14 +111,14 @@ function copyText(text, label = 'Copied') {
 /* ---------- dialogs ---------- */
 
 // A modal form. onSubmit gets the FormData and the dialog; throwing keeps it open and shows the message.
-function dialog(title, body, { onSubmit, submitLabel = 'Save', extra = '', wide = false, description = '' } = {}) {
+function dialog(title, body, { onSubmit, submitLabel = 'Save', extra = '', actions = '', wide = false, description = '' } = {}) {
   const d = el('dialog', wide ? 'wide' : '');
   d.innerHTML = `<form class="dlg">
     <div class="dlg-head"><h2>${esc(title)}</h2>${iconButton('x', 'Close', 'data-cancel')}</div>
     <div class="dlg-body">${description ? `<p class="muted">${description}</p>` : ''}${body}</div>
     <div class="dlg-foot"><span class="err"></span>${extra ? `<span class="left">${extra}</span>` : ''}
       ${onSubmit ? '<button type="button" class="quiet" data-cancel>Cancel</button>' : ''}
-      ${onSubmit ? `<button class="primary">${esc(submitLabel)}</button>` : '<button type="button" data-cancel>Done</button>'}</div>
+      ${onSubmit ? `<button class="primary">${esc(submitLabel)}</button>` : `<button type="button" class="${actions ? 'quiet' : ''}" data-cancel>${actions ? 'Close' : 'Done'}</button>${actions}`}</div>
   </form>`;
   document.body.appendChild(d);
   const form = d.querySelector('form');

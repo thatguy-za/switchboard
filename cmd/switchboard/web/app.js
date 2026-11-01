@@ -12,7 +12,7 @@ const messages = {
   invalid_code: 'That code is not valid.',
   invalid_recovery_key: 'That recovery key is not valid.',
   invalid_username: 'Usernames are 2 to 32 characters: letters, digits, dot, dash or underscore.',
-  weak_password: 'Use at least 12 characters.',
+  weak_password: 'Enter a password.',
   username_taken: 'That username is taken.',
   locked: 'Too many attempts. Try again in 15 minutes.',
   rate_limited: 'Too many requests. Wait a minute and try again.',
@@ -96,7 +96,7 @@ function viewSetup() {
     <div><h1>Set up Switchboard</h1><p class="sub">Create the owner account. It becomes the first admin and gets its own encrypted vault.</p></div>
     <form id="f">
       <label>Username<input type="text" name="username" autocomplete="username" autocapitalize="off" required></label>
-      <label>Password<input type="password" name="password" autocomplete="new-password" minlength="12" required></label>
+      <label>Password<input type="password" name="password" autocomplete="new-password" required></label>
       <label>Confirm password<input type="password" name="confirm" autocomplete="new-password" required></label>
       <p class="err"></p>
       <button class="primary block">Create account</button>
@@ -158,7 +158,7 @@ function viewRecover() {
     <form id="f">
       <label>Username<input type="text" name="username" autocomplete="username" autocapitalize="off" required></label>
       <label>Recovery key<input type="text" name="recovery_key" autocomplete="off" autocapitalize="off" class="mono" required></label>
-      <label>New password<input type="password" name="new_password" autocomplete="new-password" minlength="12" required></label>
+      <label>New password<input type="password" name="new_password" autocomplete="new-password" required></label>
       <p class="err"></p>
       <button class="primary block">Set new password</button>
       <div class="auth-foot"><button type="button" class="link" id="back">Back to sign in</button></div>
@@ -173,7 +173,7 @@ function viewChangePassword() {
     <div><h1>Choose a new password</h1><p class="sub">An admin gave you a temporary password. Replace it to continue.</p></div>
     <form id="f">
       <label>Temporary password<input type="password" name="current" autocomplete="current-password" required></label>
-      <label>New password<input type="password" name="new" autocomplete="new-password" minlength="12" required></label>
+      <label>New password<input type="password" name="new" autocomplete="new-password" required></label>
       <p class="err"></p>
       <button class="primary block">Change password</button>
       <div class="auth-foot"><button type="button" class="link" id="out">Sign out</button></div>
@@ -243,7 +243,7 @@ function backupCodesDialog(codes) {
 function changePasswordDialog() {
   dialog('Change password', `
     <label>Current password<input type="password" name="current" autocomplete="current-password" required></label>
-    <label>New password<input type="password" name="new" autocomplete="new-password" minlength="12" required></label>`, {
+    <label>New password<input type="password" name="new" autocomplete="new-password" required></label>`, {
     description: 'Your vault and everything saved in it stay readable.', submitLabel: 'Change password',
     onSubmit: async fd => {
       const r = await api('POST', '/password', { current: fd.get('current'), new: fd.get('new') });
@@ -272,7 +272,7 @@ async function twoFactorSetupDialog() {
 function addUserDialog() {
   dialog('Add a user', `
     <label>Username<input type="text" name="username" autocomplete="off" autocapitalize="off" required></label>
-    <label>Temporary password<input type="password" name="password" autocomplete="new-password" minlength="12" required></label>
+    <label>Temporary password<input type="password" name="password" autocomplete="new-password" required></label>
     <label>Role<select name="role"><option value="member">Member</option><option value="admin">Admin</option></select></label>`, {
     description: 'They will be asked to choose their own password the first time they sign in.', submitLabel: 'Add user',
     onSubmit: async fd => {
@@ -303,7 +303,7 @@ async function renderTailscale(host) {
   const configure = () => tailscaleDialog(t, () => renderTailscale(host));
   host.innerHTML = panel(
     settingRow(`Tailscale ${status}`, `Reach SSH and RDP hosts by their tailnet address or name, and optionally open Switchboard from your tailnet.${where ? `<div>${where}</div>` : ''}${url}${problem}`,
-      `${button('Settings', { icon: 'settings', attrs: 'id="tsedit"' })}${switchControl({ id: 'tson', checked: t.enabled, label: 'Use Tailscale' })}`) +
+      `${button('Configure', { icon: 'settings', attrs: 'id="tsedit"' })}${switchControl({ id: 'tson', checked: t.enabled, label: 'Use Tailscale' })}`) +
     (t.has_state ? settingRow('Remove from tailnet', 'Log this device out of Tailscale and forget it. You will need a new auth key to join again.',
       button('Remove', { kind: 'danger', attrs: 'id="tsrm"' })) : ''));
   $('#tsedit', host).addEventListener('click', configure);
@@ -324,7 +324,7 @@ async function renderTailscale(host) {
 }
 
 function tailscaleDialog(t, done) {
-  dialog('Tailscale', `
+  dialog(t.enabled ? 'Tailscale settings' : 'Connect to Tailscale', `
     <label>Device name<input type="text" name="hostname" value="${esc(t.hostname)}" maxlength="63" pattern="[a-z0-9]([a-z0-9\\-]*[a-z0-9])?" autocapitalize="off" required></label>
     <label>Auth key<input type="password" name="auth_key" autocomplete="off" ${t.has_state ? '' : 'required'}
       placeholder="${t.has_state ? 'Only needed to join again' : 'tskey-auth-…'}"></label>
@@ -448,7 +448,7 @@ async function renderSettingsBody() {
     body.innerHTML = panel(
       settingRow('Signed in as', 'Your name on this Switchboard.', `${tag(u.role === 'admin' ? 'Admin' : 'Member', u.role === 'admin' ? 'acc' : '')}<strong>${esc(u.username)}</strong>`) +
       settingRow('Password', 'Changing it keeps your vault and everything saved in it readable.', button('Change password', { attrs: 'id="pw"' })) +
-      settingRow('Sign out everywhere', 'Ends your sessions on every device, including this one.', button('Sign out everywhere', { attrs: 'id="all"' })));
+      settingRow('Sessions', 'Ends your sessions on every device, including this one.', button('Sign out everywhere', { attrs: 'id="all"' })));
     bind('#pw', changePasswordDialog);
     bind('#all', signOutEverywhere);
   } else if (settingsTab === 'security') {

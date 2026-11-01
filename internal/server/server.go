@@ -24,7 +24,6 @@ const (
 	cookiePending = "sb_pending"
 	maxFailures   = 5
 	lockDuration  = 15 * time.Minute
-	minPassword   = 12
 )
 
 func init() {

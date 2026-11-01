@@ -827,7 +827,7 @@ function pushDialog(ident) {
     <p class="muted small" id="psum"></p>`, {
     wide: true,
     description: `Adds this key's public half to each host's <code>~/.ssh/authorized_keys</code>, checks that signing in with it works, then makes the host use it. Each host signs in with its current credentials first, and its host key must already be trusted: open it in a terminal once if you haven't.`,
-    extra: '<button type="button" class="primary" id="pgo">Push</button>',
+    actions: '<button type="button" class="primary" id="pgo">Push</button>',
   });
   const list = d.querySelector('.pushlist');
   const rowEls = [...list.querySelectorAll('.prow')];

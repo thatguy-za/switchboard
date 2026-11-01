@@ -78,8 +78,8 @@ func TestFlow(t *testing.T) {
 	srv.limit = newLimiter(1000, time.Minute)
 
 	a := newClient(t, ts.URL)
-	if code, _ := a.do("POST", "/api/setup", credentials{"owner", "short"}); code != 400 {
-		t.Fatalf("weak password: got %d", code)
+	if code, _ := a.do("POST", "/api/setup", credentials{"owner", ""}); code != 400 {
+		t.Fatalf("empty password: got %d", code)
 	}
 	code, out := a.do("POST", "/api/setup", credentials{"owner", "a long enough password"})
 	if code != 200 || out["recovery_key"] == "" {
@@ -192,6 +192,18 @@ func TestPWAFilesAreServedCorrectly(t *testing.T) {
 		}
 		if !strings.Contains(resp.Header.Get("Content-Security-Policy"), "default-src 'self'") {
 			t.Errorf("%s: missing content security policy", path)
+		}
+	}
+}
+
+func TestAnyPasswordLength(t *testing.T) {
+	_, ts, owner := newBridgeEnv(t)
+	for name, pw := range map[string]string{"tiny": "x", "huge": strings.Repeat("long passphrase ", 400)} {
+		if code, out := owner.do("POST", "/api/admin/users", map[string]string{"username": name, "password": pw, "role": "member"}); code != 200 {
+			t.Fatalf("create %s: %d %v", name, code, out)
+		}
+		if code, _ := newClient(t, ts.URL).do("POST", "/api/login", credentials{name, pw}); code != 200 {
+			t.Fatalf("login with the %s password: %d", name, code)
 		}
 	}
 }

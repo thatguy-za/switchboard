@@ -13,7 +13,7 @@ func validCredentials(username, password string) string {
 	if !usernameRe.MatchString(username) {
 		return "invalid_username"
 	}
-	if len(password) < minPassword || len(password) > 256 {
+	if password == "" {
 		return "weak_password"
 	}
 	return ""
@@ -215,7 +215,7 @@ func (s *Server) handlePassword(w http.ResponseWriter, r *http.Request, a *authe
 		s.failure(w, a.user, "invalid_credentials")
 		return
 	}
-	if len(in.New) < minPassword || len(in.New) > 256 {
+	if in.New == "" {
 		apiErr(w, http.StatusBadRequest, "weak_password")
 		return
 	}
@@ -263,7 +263,7 @@ func (s *Server) handleRecover(w http.ResponseWriter, r *http.Request) {
 		s.failure(w, u, "invalid_recovery_key")
 		return
 	}
-	if len(in.NewPassword) < minPassword || len(in.NewPassword) > 256 {
+	if in.NewPassword == "" {
 		apiErr(w, http.StatusBadRequest, "weak_password")
 		return
 	}

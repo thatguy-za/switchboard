@@ -117,7 +117,7 @@ const dlg = () => page.locator('dialog[open]');
     await page.click('#pgo');
     await page.waitForSelector('.res.ok', { timeout: 20000 });
     await snap('16-push-result');
-    await dlg().locator('button:has-text("Done")').click();
+    await dlg().locator('button:has-text("Close")').click();
     await page.waitForSelector('dialog[open]', { state: 'detached' });
     await snap('17-identities');
   });
