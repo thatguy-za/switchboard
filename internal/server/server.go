@@ -56,7 +56,9 @@ type Server struct {
 	stop       chan struct{}
 	rdpMu      sync.Mutex
 	rdpActive  int
-	ts         tailnetBackend
+	tsMu       sync.Mutex
+	ts         map[string]tailnetBackend // each user has their own Tailscale node
+	tsNew      func(dir string) tailnetBackend
 }
 
 func New(cfg Config, web fs.FS) (*Server, error) {
@@ -79,10 +81,11 @@ func New(cfg Config, web fs.FS) (*Server, error) {
 		sess: newSessions(), limit: newLimiter(20, time.Minute),
 		dummyHash: crypto.HashPassword("dummy"), stop: make(chan struct{}),
 	}
-	s.ts = tailnet.New(filepath.Join(cfg.DataDir, "tailscale"))
+	s.ts = map[string]tailnetBackend{}
+	s.tsNew = func(dir string) tailnetBackend { return tailnet.New(dir) }
 	s.prepareTransfers()
 	go s.janitor()
-	s.applyTailscale("", false)
+	s.startTailscale()
 	return s, nil
 }
 
@@ -90,7 +93,7 @@ func (s *Server) KeyCreated() bool { return s.keyCreated }
 
 func (s *Server) Close() {
 	close(s.stop)
-	s.ts.Stop()
+	s.stopTailscale()
 	s.db.Close()
 }
 
@@ -147,9 +150,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/admin/users/{id}", s.admin(s.handleDeleteUser))
 	mux.HandleFunc("POST /api/admin/users/{id}/reset-2fa", s.admin(s.handleReset2FA))
 	mux.HandleFunc("POST /api/admin/require-2fa", s.admin(s.handleRequire2FA))
-	mux.HandleFunc("GET /api/admin/tailscale", s.admin(s.handleGetTailscale))
-	mux.HandleFunc("POST /api/admin/tailscale", s.admin(s.handleSetTailscale))
-	mux.HandleFunc("POST /api/admin/tailscale/remove", s.admin(s.handleRemoveTailscale))
+	mux.HandleFunc("GET /api/tailscale", s.auth(true, s.handleGetTailscale))
+	mux.HandleFunc("POST /api/tailscale", s.auth(true, s.handleSetTailscale))
+	mux.HandleFunc("POST /api/tailscale/remove", s.auth(true, s.handleRemoveTailscale))
 	mux.HandleFunc("POST /api/admin/master-key", s.admin(s.handleMasterKey))
 	mux.HandleFunc("POST /api/admin/key-backup-confirmed", s.admin(s.handleKeyBackupConfirmed))
 

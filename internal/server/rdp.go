@@ -145,7 +145,7 @@ func (s *Server) handleRDP(w http.ResponseWriter, r *http.Request, a *authed) {
 
 	params, cleanup := s.rdpParams(host, opts, a)
 	defer cleanup()
-	if rh, rp, stopRelay := s.tailnetRelay(ctx, host); rh != "" {
+	if rh, rp, stopRelay := s.tailnetRelay(ctx, a.user.ID, host); rh != "" {
 		params["hostname"], params["port"] = rh, rp
 		defer stopRelay()
 	}

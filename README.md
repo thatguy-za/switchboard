@@ -74,19 +74,25 @@ pane's buttons. `tests/ui/a11y.sh` runs an automated axe-core check of every scr
 
 ## Tailscale
 
-Switchboard can join your tailnet itself, with nothing extra to run. Open **Settings → Server → Tailscale**
-as an admin, turn it on and paste an auth key (create one in the Tailscale admin console under
-Settings → Keys). The key is used once to join and is never stored; the device's identity is kept in
-`/data/tailscale`, so it rejoins by itself after a restart.
+Switchboard can join your tailnet itself, with nothing extra to run, and every user does it for themselves.
+Open **Settings → Tailscale**, turn it on and either sign in with Tailscale or paste an auth key (create one in
+the Tailscale admin console under Settings → Keys). Each user gets their own device on their own tailnet, so
+one person can be on a tailnet while another is not, and a user's tailnet is only used for their own hosts.
+The key is used once to join and is never stored; each device's identity is kept under `/data/tailscale`,
+so it rejoins by itself after a restart. If you ran an earlier version with a single server-wide node, it
+now belongs to the first admin.
 
-- **Reaching hosts:** an SSH or RDP host whose address is a Tailscale IP (`100.x.y.z`) or a `*.ts.net`
-  name is reached over the tailnet. A single-word name is tried on the tailnet first and then directly.
-  Everything else connects directly, as before.
+- **Reaching hosts:** an SSH or RDP host whose address is a Tailscale IP (`100.x.y.z`) or a `*.ts.net` name
+  is reached over the tailnet. Any other name is looked up with the container's normal DNS first, so LAN
+  and public names work exactly as before; if that finds nothing, such as a MagicDNS short name like
+  `nas`, the lookup is made on your tailnet. A name that resolves to a Tailscale address uses the tailnet too.
+- **Devices:** while connected, the Tailscale page lists the other devices on your tailnet, with a button to
+  add one as a host.
 - **Opening Switchboard from the tailnet:** with *Open the web UI on the tailnet* on, the page is also
-  served on port 3000 of the device name you chose, for example `http://switchboard:3000`, from any
+  served on port 3000 of your device name (`switchboard-<username>` unless you change it), from any
   device on your tailnet. Port 3000 on the host keeps working either way.
 - **Removing it:** *Remove from tailnet* logs the device out and forgets it. If the device is offline when
-  you do this, delete it in the Tailscale admin console too.
+  you do this, delete it in the Tailscale admin console too. Deleting a user removes their device the same way.
 
 RDP goes through a small loopback relay inside the container, because guacd can't use the embedded node.
 Network Level Authentication works with it, but not Kerberos. Tailscale SSH and exit nodes aren't supported.

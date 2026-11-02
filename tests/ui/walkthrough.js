@@ -157,6 +157,7 @@ const dlg = () => page.locator('dialog[open]');
   });
   await step('settings server', async () => { await nav('server'); await snap('24-settings-server'); });
   await step('tailscale dialog', async () => {
+    await nav('tailscale');
     await page.waitForSelector('#tsedit');
     await page.click('#tsedit');
     await dlg().waitFor();

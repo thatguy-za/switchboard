@@ -54,10 +54,10 @@ const nav = async tab => { await page.click('.nav[data-view=settings]'); await p
   });
   await step('palette', async () => { await page.click('#find'); await check('palette'); await page.keyboard.press('Escape'); });
   await step('identities', async () => { await page.click('.nav[data-view=identities]'); await check('identities'); await page.click('#id-new'); await check('identity-dialog'); await close(); });
-  for (const t of ['account', 'security', 'appearance', 'users', 'server']) await step(t, async () => { await nav(t); await check('settings-' + t); });
+  for (const t of ['account', 'security', 'appearance', 'tailscale', 'users', 'server']) await step(t, async () => { await nav(t); await check('settings-' + t); });
   await step('2fa dialog', async () => { await nav('security'); await page.click('#on'); await check('2fa-dialog'); await close(); });
   await step('add user', async () => { await nav('users'); await page.click('#add'); await check('add-user-dialog'); await close(); });
-  await step('tailscale', async () => { await nav('server'); await page.click('#tsedit'); await check('tailscale-dialog'); await close(); });
+  await step('tailscale', async () => { await nav('tailscale'); await page.click('#tsedit'); await check('tailscale-dialog'); await close(); });
   await step('light', async () => {
     await nav('appearance'); await page.click('.seg button[data-theme=light]');
     await check('light-settings'); await page.click('.nav[data-view=identities]'); await check('light-identities');

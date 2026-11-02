@@ -71,6 +71,7 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request, a *aut
 		}
 	}
 	s.sess.removeUser(id, "")
+	s.forgetTailscale(id)
 	if err := s.db.DeleteUser(id); err != nil {
 		serverErr(w, err)
 		return

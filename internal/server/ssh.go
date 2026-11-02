@@ -300,7 +300,7 @@ func (s *Server) connectHost(ctx context.Context, host *store.Host, a *authed, s
 		var de *dialError
 		if errors.As(err, &de) {
 			he.unreached = true
-			he.hint = s.tailnetHint(host.Address)
+			he.hint = s.tailnetHint(a.user.ID, host.Address)
 		}
 		return nil, nil, he
 	}
@@ -323,7 +323,7 @@ func (s *Server) dialHost(ctx context.Context, hop *store.Host, a *authed, send 
 	defer wipe()
 
 	addr := net.JoinHostPort(hop.Address, strconv.Itoa(hop.Port))
-	conn, _, err := s.dialTCP(ctx, hop.Address, hop.Port, 15*time.Second)
+	conn, _, err := s.dialTCP(ctx, a.user.ID, hop.Address, hop.Port, 15*time.Second)
 	if err != nil {
 		return nil, &dialError{err}
 	}

@@ -283,15 +283,15 @@ function addUserDialog() {
   });
 }
 
-/* ---------- Tailscale (Settings → Server) ---------- */
+/* ---------- Tailscale (Settings → Tailscale, one node per user) ---------- */
 
 let tsTimer = null;
 
 async function renderTailscale(host) {
   clearTimeout(tsTimer);
   let t;
-  try { t = await api('GET', '/admin/tailscale'); } catch (e) { host.innerHTML = notice('alert-triangle', esc(e.message)); return; }
-  if (!host.isConnected || settingsTab !== 'server') return;
+  try { t = await api('GET', '/tailscale'); } catch (e) { host.innerHTML = notice('alert-triangle', esc(e.message)); return; }
+  if (!host.isConnected || settingsTab !== 'tailscale') return;
   const up = t.state === 'connected';
   const status = {
     off: tag('Off'), needs_key: tag('Needs a key', 'warn'), starting: t.login_url ? tag('Waiting for sign-in', 'warn') : tag('Connecting…'),
@@ -311,7 +311,7 @@ async function renderTailscale(host) {
       actions: iconButton('plus', `Add ${p.name || p.dns_name} as a host`, `data-ts-add="${esc(p.dns_name || p.ips[0])}" data-ts-name="${esc(p.name)}"`),
     })).join(''))}` : '';
   host.innerHTML = panel(
-    settingRow(`Tailscale ${status}`, `Reach SSH and RDP hosts by their tailnet address or name, and optionally open Switchboard from your tailnet.${where ? `<div>${where}</div>` : ''}${url}${approve}${problem}`,
+    settingRow(`Tailscale ${status}`, `Connect your own device to your tailnet to reach SSH and RDP hosts by tailnet address or name, and optionally open Switchboard from it. Other users set up theirs separately. Names your network already knows resolve as usual; the rest are looked up on your tailnet.${where ? `<div>${where}</div>` : ''}${url}${approve}${problem}`,
       `${approve ? button('Open sign-in page', { kind: 'primary', icon: 'login', attrs: 'id="tslogin"' }) : ''}${button('Configure', { icon: 'settings', attrs: 'id="tsedit"' })}${switchControl({ id: 'tson', checked: t.enabled, label: 'Use Tailscale' })}`) +
     (t.has_state ? settingRow('Remove from tailnet', 'Log this device out of Tailscale and forget it. You will need a new auth key to join again.',
       button('Remove', { kind: 'danger', attrs: 'id="tsrm"' })) : '')) + peers;
@@ -323,13 +323,13 @@ async function renderTailscale(host) {
   $('#tson', host).addEventListener('change', async ev => {
     if (ev.target.checked && !t.has_state) { ev.target.checked = false; configure(); return; }
     try {
-      await api('POST', '/admin/tailscale', { enabled: ev.target.checked, hostname: t.hostname, serve_ui: t.serve_ui });
+      await api('POST', '/tailscale', { enabled: ev.target.checked, hostname: t.hostname, serve_ui: t.serve_ui });
     } catch (e) { toast(e.message, 'err'); }
     renderTailscale(host);
   });
   const rm = $('#tsrm', host);
   if (rm) rm.addEventListener('click', () => confirmDialog('Remove from tailnet?', 'This device is logged out of Tailscale and forgotten. Hosts reached over the tailnet stop working until you join again.', 'Remove', async () => {
-    await api('POST', '/admin/tailscale/remove');
+    await api('POST', '/tailscale/remove');
     toast('Removed from the tailnet');
     renderTailscale(host);
   }));
@@ -347,7 +347,7 @@ function tailscaleDialog(t, done) {
     extra: t.has_state ? '' : button('Sign in with Tailscale', { icon: 'login', attrs: 'type="button" id="tssignin"' }),
     onSubmit: async fd => {
       if (!t.has_state && !fd.get('auth_key')) throw new Error('Paste an auth key, or use Sign in with Tailscale.');
-      await api('POST', '/admin/tailscale', { enabled: true, hostname: fd.get('hostname'), serve_ui: fd.get('serve_ui') !== null, auth_key: fd.get('auth_key') });
+      await api('POST', '/tailscale', { enabled: true, hostname: fd.get('hostname'), serve_ui: fd.get('serve_ui') !== null, auth_key: fd.get('auth_key') });
       toast('Tailscale is connecting');
       done();
     },
@@ -359,7 +359,7 @@ function tailscaleDialog(t, done) {
     const fd = new FormData(f);
     signIn.disabled = true;
     try {
-      await api('POST', '/admin/tailscale', { enabled: true, hostname: fd.get('hostname'), serve_ui: fd.get('serve_ui') !== null, sign_in: true });
+      await api('POST', '/tailscale', { enabled: true, hostname: fd.get('hostname'), serve_ui: fd.get('serve_ui') !== null, sign_in: true });
       d.close();
       toast('Waiting for you to approve this device');
       done();
@@ -466,7 +466,7 @@ function updateNav() {
 function renderSettings() {
   const root = $('#view-settings', shell);
   const admin = state.user.role === 'admin';
-  const tabs = [['account', 'Account', 'user'], ['security', 'Security', 'shield-lock'], ['appearance', 'Appearance', 'palette']];
+  const tabs = [['account', 'Account', 'user'], ['security', 'Security', 'shield-lock'], ['appearance', 'Appearance', 'palette'], ['tailscale', 'Tailscale', 'network']];
   if (admin) tabs.push(['users', 'Users', 'users'], ['server', 'Server', 'server']);
   if (!tabs.some(t => t[0] === settingsTab)) settingsTab = 'account';
   root.innerHTML = `<div class="page"><div class="page-in">
@@ -575,7 +575,6 @@ async function renderSettingsBody() {
       ${panel(
         settingRow('Master key', 'Generated when Switchboard first started. Every stored secret is encrypted with it.', button('Download key', { kind: 'primary', icon: 'download', attrs: 'id="key"' })) +
         settingRow('Backup confirmed', 'Turn this on once the key is stored safely. It clears the reminder.', switchControl({ id: 'keydone', checked: !state.key_backup_pending, disabled: !state.key_backup_pending, label: 'Backup confirmed' })))}
-      <div id="ts"></div>
     </div>`;
     bind('#key', () => passwordDialog('Download the master key', 'Enter your password to download it.', 'Download', async password => {
       const r = await api('POST', '/admin/master-key', { password });
@@ -593,6 +592,8 @@ async function renderSettingsBody() {
       renderSettingsBody();
       toast('Marked as backed up');
     });
+  } else if (settingsTab === 'tailscale') {
+    body.innerHTML = '<div class="stack" id="ts"></div>';
     renderTailscale($('#ts', body));
   }
 }
