@@ -720,9 +720,16 @@ function scheduleReconnect(sess) {
   sess.timer = setTimeout(() => connect(sess), delay);
 }
 
-function onClosed(sess, ev) {
+// Whether this browser is still signed in: true, false, or null when the server can't be reached.
+async function signedIn() {
+  try { return !!(await (await fetch('/api/state', { credentials: 'same-origin' })).json()).user; } catch (e) { return null; }
+}
+
+async function onClosed(sess, ev) {
   if (['fatal', 'ended', 'lost'].includes(sess.state)) return;
-  if (ev.code === 4401) return webSessionEnded(sess);
+  // A restart or timeout signs everyone out, and retrying would never work: go to the sign-in page.
+  if (ev.code === 4401 || (await signedIn()) === false) return webSessionEnded();
+  if (sess.closed || ['fatal', 'ended', 'lost'].includes(sess.state)) return;
   if (!sess.connectedBefore || sess.retries >= 8) {
     setState(sess, 'fatal');
     explainClose(sess, ev);
@@ -731,13 +738,10 @@ function onClosed(sess, ev) {
   scheduleReconnect(sess);
 }
 
-function webSessionEnded(sess) {
-  setState(sess, 'fatal');
-  showOverlay(sess, {
-    tone: 'danger', title: 'Your web session has ended',
-    text: 'You were signed out. This happens when Switchboard restarts or the session times out from inactivity. Sign in again to continue.',
-  });
-  refresh();
+// The web session is gone, so every pane is dead: show the sign-in page.
+async function webSessionEnded() {
+  await refresh();
+  toast('You were signed out. Sign in again to continue.', 'err');
 }
 
 // The socket closed without the server saying why, so find out what we can.
@@ -747,7 +751,7 @@ async function explainClose(sess, ev) {
   let st = null;
   try { st = await (await fetch('/api/state', { credentials: 'same-origin' })).json(); } catch (e) { /* unreachable */ }
   if (sess.closed) return;
-  if (st && !st.user) return webSessionEnded(sess);
+  if (st && !st.user) return webSessionEnded();
   if (!st) {
     showOverlay(sess, {
       tone: 'danger', title: 'Cannot reach Switchboard',

@@ -248,9 +248,15 @@ function rdpLost(sess, client, status) {
   const code = status ? status.code : 0;
   const message = status && status.message && !/^\d+$/.test(status.message) ? status.message : '';
   const retry = { label: 'Retry', cls: 'primary', fn: () => { sess.retries = 0; connect(sess); } };
-  if (code === WEB_SESSION_ENDED) return webSessionEnded(sess);
+  if (code === WEB_SESSION_ENDED) return webSessionEnded();
   const authProblem = code >= 768 && code < 800;
-  if (sess.connectedBefore && !authProblem && sess.retries < 8) { scheduleReconnect(sess); return; }
+  if (sess.connectedBefore && !authProblem && sess.retries < 8) {
+    signedIn().then(ok => {
+      if (ok === false) webSessionEnded();
+      else if (!sess.closed && !['fatal', 'ended'].includes(sess.state)) scheduleReconnect(sess);
+    });
+    return;
+  }
   setState(sess, 'fatal');
   const name = esc(sess.host.name);
   const why = authProblem

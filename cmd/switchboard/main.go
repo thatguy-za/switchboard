@@ -22,6 +22,9 @@ import (
 //go:embed web
 var webFS embed.FS
 
+// version is set at build time: -ldflags "-X main.version=v0.0.7".
+var version = "dev"
+
 func env(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -84,6 +87,7 @@ func main() {
 		TransferDir:    env("SWITCHBOARD_TRANSFER_DIR", "/tmp/switchboard-transfer"),
 		MaxRDP:         maxRDP,
 		TrustProxy:     env("SWITCHBOARD_TRUST_PROXY", "") == "true",
+		Version:        version,
 	}, web)
 	if err != nil {
 		log.Fatal(err)

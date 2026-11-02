@@ -30,6 +30,9 @@ const dlg = () => page.locator('dialog[open]');
     await page.click('button:has-text("Continue")');
     await page.waitForSelector('#shell');
   });
+  await step('version shows in the sidebar', async () => {
+    if (!/Version \S+/.test(await page.locator('.side .version').innerText())) throw new Error('no version in the sidebar');
+  });
   await step('welcome (no hosts)', async () => { await snap('02-welcome-empty'); });
 
   await step('add folder', async () => {
@@ -293,6 +296,16 @@ const dlg = () => page.locator('dialog[open]');
     if (chosen !== 'Scratch') throw new Error('new folder not selected: ' + chosen);
     await snap('46-m-new-folder');
     await dlg().locator('[data-cancel]').first().click();
+  });
+  await step('losing the web session sends you to sign in', async () => {
+    await page.setViewportSize({ width: 1360, height: 840 });
+    await page.goto('/'); await page.waitForSelector('#shell');
+    await page.click('.row.host:has-text("pi-hole") .row-main');
+    await page.waitForSelector('.tab.on .dot.live', { timeout: 15000 });
+    await page.context().clearCookies(); // what a server restart does to this browser's session
+    await page.evaluate(() => WS.active.active.sock.close());
+    await page.waitForSelector('button:has-text("Sign in")', { timeout: 15000 });
+    await snap('47-signed-out');
   });
   console.log(results.join('\n'));
   console.log('page errors:', errors.length ? errors.slice(0, 8).join(' | ') : 'none');

@@ -41,6 +41,7 @@ type Config struct {
 	TransferDir      string // folder shared with guacd for RDP file transfer; empty turns it off
 	MaxRDP           int    // concurrent RDP sessions allowed
 	TrustProxy       bool   // take the client address from X-Forwarded-For, for rate limits
+	Version          string // shown on the sign-in page and in the sidebar
 }
 
 type Server struct {
@@ -346,7 +347,7 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		serverErr(w, err)
 		return
 	}
-	out := map[string]any{"setup_done": n > 0, "require_2fa": s.require2FA()}
+	out := map[string]any{"setup_done": n > 0, "require_2fa": s.require2FA(), "version": s.cfg.Version}
 	if a, ok := s.authenticate(r); ok {
 		v := s.view(a.user)
 		if left, err := s.db.BackupCodesLeft(a.user.ID); err == nil && a.user.TOTPEnabled {
