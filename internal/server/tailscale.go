@@ -21,6 +21,7 @@ type tailnetBackend interface {
 	Stop()
 	Remove() error
 	Status() tailnet.Status
+	Peers(ctx context.Context) []tailnet.Peer
 	Connected() bool
 	HasState() bool
 	Dial(ctx context.Context, addr string, timeout time.Duration) (net.Conn, error)
@@ -37,6 +38,8 @@ type tailscaleView struct {
 	Port     int    `json:"port"`
 	tailnet.Status
 	HasState bool `json:"has_state"`
+	// Peers are the other devices on the tailnet, listed while connected.
+	Peers []tailnet.Peer `json:"peers"`
 }
 
 func (s *Server) tailscaleSettings() (enabled bool, hostname string, serveUI bool) {
@@ -49,14 +52,14 @@ func (s *Server) tailscaleSettings() (enabled bool, hostname string, serveUI boo
 	return v == "1", hostname, ui != "0"
 }
 
-func (s *Server) tailscaleView() tailscaleView {
+func (s *Server) tailscaleView(ctx context.Context) tailscaleView {
 	enabled, hostname, serveUI := s.tailscaleSettings()
 	port := s.cfg.Port
 	if port == 0 {
 		port = 3000
 	}
 	return tailscaleView{Enabled: enabled, Hostname: hostname, ServeUI: serveUI, Port: port,
-		Status: s.ts.Status(), HasState: s.ts.HasState()}
+		Status: s.ts.Status(), HasState: s.ts.HasState(), Peers: s.ts.Peers(ctx)}
 }
 
 // applyTailscale starts or stops the node to match the saved settings.
@@ -71,8 +74,8 @@ func (s *Server) applyTailscale(authKey string, signIn bool) {
 		Port: s.cfg.Port, Handler: s.Handler()})
 }
 
-func (s *Server) handleGetTailscale(w http.ResponseWriter, _ *http.Request, _ *authed) {
-	writeJSON(w, http.StatusOK, s.tailscaleView())
+func (s *Server) handleGetTailscale(w http.ResponseWriter, r *http.Request, _ *authed) {
+	writeJSON(w, http.StatusOK, s.tailscaleView(r.Context()))
 }
 
 func (s *Server) handleSetTailscale(w http.ResponseWriter, r *http.Request, _ *authed) {
@@ -114,11 +117,11 @@ func (s *Server) handleSetTailscale(w http.ResponseWriter, r *http.Request, _ *a
 		}
 	}
 	s.applyTailscale(in.AuthKey, in.SignIn)
-	writeJSON(w, http.StatusOK, s.tailscaleView())
+	writeJSON(w, http.StatusOK, s.tailscaleView(r.Context()))
 }
 
 // handleRemoveTailscale logs the node out and forgets its identity.
-func (s *Server) handleRemoveTailscale(w http.ResponseWriter, _ *http.Request, _ *authed) {
+func (s *Server) handleRemoveTailscale(w http.ResponseWriter, r *http.Request, _ *authed) {
 	if err := s.db.SetSetting("tailscale_enabled", "0"); err != nil {
 		serverErr(w, err)
 		return
@@ -127,7 +130,7 @@ func (s *Server) handleRemoveTailscale(w http.ResponseWriter, _ *http.Request, _
 		serverErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, s.tailscaleView())
+	writeJSON(w, http.StatusOK, s.tailscaleView(r.Context()))
 }
 
 // viaTailnet reports whether host should be tried on the tailnet.

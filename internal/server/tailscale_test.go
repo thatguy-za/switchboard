@@ -47,6 +47,12 @@ func (f *fakeTailnet) Status() tailnet.Status {
 	}
 	return tailnet.Status{State: tailnet.StateOff}
 }
+func (f *fakeTailnet) Peers(context.Context) []tailnet.Peer {
+	if !f.Connected() {
+		return nil
+	}
+	return []tailnet.Peer{{Name: "nas", DNSName: "nas.tail1234.ts.net", IPs: []string{"100.64.0.5"}, OS: "linux", Online: true}}
+}
 func (f *fakeTailnet) Dial(_ context.Context, addr string, _ time.Duration) (net.Conn, error) {
 	f.mu.Lock()
 	f.dialed = append(f.dialed, addr)
@@ -109,7 +115,7 @@ func TestTailscaleSettings(t *testing.T) {
 			t.Fatalf("auth key stored in %s", k)
 		}
 	}
-	if out := srv.tailscaleView(); out.Hostname != "sb-home" || out.ServeUI {
+	if out := srv.tailscaleView(context.Background()); out.Hostname != "sb-home" || out.ServeUI {
 		t.Fatalf("saved settings: %+v", out)
 	}
 
@@ -236,4 +242,19 @@ func ownerID(t *testing.T, srv *Server) string {
 		t.Fatal(err)
 	}
 	return u.ID
+}
+
+func TestTailscaleListsPeers(t *testing.T) {
+	srv, _, u := newBridgeEnv(t)
+	fake := &fakeTailnet{}
+	srv.ts = fake
+	if _, out := u.do("GET", "/api/admin/tailscale", nil); out["peers"] != nil {
+		t.Fatalf("peers while disconnected: %v", out["peers"])
+	}
+	fake.connected = true
+	_, out := u.do("GET", "/api/admin/tailscale", nil)
+	peers, _ := out["peers"].([]any)
+	if len(peers) != 1 || peers[0].(map[string]any)["dns_name"] != "nas.tail1234.ts.net" {
+		t.Fatalf("peers: %v", out["peers"])
+	}
 }

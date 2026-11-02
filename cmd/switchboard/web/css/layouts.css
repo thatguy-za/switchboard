@@ -44,7 +44,9 @@
 .divider.dir-col::after { inset: calc(var(--hit) * -1) 0; }
 .divider:hover { background: var(--acc); }
 .pane { position: absolute; inset: 0; display: flex; flex-direction: column; }
-.pane .term { position: relative; flex: 1; min-height: 0; padding: var(--s-4) 0 0 var(--s-6); background: var(--term-bg, var(--surface-term)); }
+.pane .term { position: relative; flex: 1; min-height: 0; background: var(--term-bg, var(--surface-term)); }
+/* The padding sits on xterm's own element, because the fit addon subtracts that element's padding but not its parent's. */
+.pane .term .xterm { padding: var(--s-4) 0 0 var(--s-6); }
 .phead { display: flex; align-items: center; gap: var(--s-2); height: var(--h-phead); padding: 0 var(--s-3) 0 var(--s-6); border-bottom: 1px solid var(--line); background: var(--bg); font-size: var(--fs-xs); color: var(--text-3); flex: none; }
 .phead .pname { color: var(--text-2); font-weight: var(--fw-medium); margin-left: var(--s-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pane.on .phead .pname { color: var(--text); }

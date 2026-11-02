@@ -85,6 +85,13 @@ const dlg = () => page.locator('dialog[open]');
     await page.waitForFunction(() => document.querySelector('.xterm-rows') && document.querySelector('.xterm-rows').innerText.includes('hello from switchboard'), null, { timeout: 8000 });
     await snap('07-terminal');
   });
+  await step('terminal fits its pane', async () => {
+    const gap = await page.evaluate(() => {
+      const t = document.querySelector('.pane .term:not([hidden])'); const s = t.querySelector('.xterm-screen');
+      return Math.round(t.getBoundingClientRect().bottom - s.getBoundingClientRect().bottom);
+    });
+    if (gap < 0) throw new Error(`the last terminal row is ${-gap}px below the pane`);
+  });
   await step('palette', async () => {
     await page.click('#find');
     await page.waitForSelector('dialog.palette[open]');

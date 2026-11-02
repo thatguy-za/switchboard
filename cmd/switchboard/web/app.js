@@ -302,11 +302,21 @@ async function renderTailscale(host) {
   const problem = t.error ? `<div class="err">${esc(t.error)}</div>` : '';
   const approve = t.state === 'starting' && t.login_url ? '<div>Open the sign-in page and approve this device to finish joining.</div>' : '';
   const configure = () => tailscaleDialog(t, () => renderTailscale(host));
+  const peers = up && (t.peers || []).length ? `
+    ${sectionHead('Devices on your tailnet')}
+    ${panel(t.peers.map(p => itemRow({
+      lead: `<span class="dot ${p.online ? 'live' : ''}" role="img" aria-label="${p.online ? 'Online' : 'Offline'}"></span>`,
+      title: esc(p.name || p.dns_name),
+      meta: `<div class="meta"><code>${esc(p.dns_name)}</code> · ${esc((p.ips || []).join(', '))}${p.os ? ` · ${esc(p.os)}` : ''}</div>`,
+      actions: iconButton('plus', `Add ${p.name || p.dns_name} as a host`, `data-ts-add="${esc(p.dns_name || p.ips[0])}" data-ts-name="${esc(p.name)}"`),
+    })).join(''))}` : '';
   host.innerHTML = panel(
     settingRow(`Tailscale ${status}`, `Reach SSH and RDP hosts by their tailnet address or name, and optionally open Switchboard from your tailnet.${where ? `<div>${where}</div>` : ''}${url}${approve}${problem}`,
       `${approve ? button('Open sign-in page', { kind: 'primary', icon: 'login', attrs: 'id="tslogin"' }) : ''}${button('Configure', { icon: 'settings', attrs: 'id="tsedit"' })}${switchControl({ id: 'tson', checked: t.enabled, label: 'Use Tailscale' })}`) +
     (t.has_state ? settingRow('Remove from tailnet', 'Log this device out of Tailscale and forget it. You will need a new auth key to join again.',
-      button('Remove', { kind: 'danger', attrs: 'id="tsrm"' })) : ''));
+      button('Remove', { kind: 'danger', attrs: 'id="tsrm"' })) : '')) + peers;
+  host.querySelectorAll('[data-ts-add]').forEach(b => b.addEventListener('click', () =>
+    hostDialog(null, { prefill: { name: b.dataset.tsName, address: b.dataset.tsAdd } })));
   $('#tsedit', host).addEventListener('click', configure);
   const login = $('#tslogin', host);
   if (login) login.addEventListener('click', () => window.open(t.login_url, '_blank', 'noopener'));

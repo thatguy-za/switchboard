@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,6 +38,15 @@ type Status struct {
 	// LoginURL is where to approve this device when it joined without a key.
 	LoginURL string   `json:"login_url,omitempty"`
 	IPs      []string `json:"ips,omitempty"`
+}
+
+// Peer is another device on the tailnet.
+type Peer struct {
+	Name    string   `json:"name"`     // the machine name
+	DNSName string   `json:"dns_name"` // its MagicDNS name
+	IPs     []string `json:"ips"`
+	OS      string   `json:"os,omitempty"`
+	Online  bool     `json:"online"`
 }
 
 // Options configure a node. AuthKey is only needed for the first join: after
@@ -228,6 +238,42 @@ func (m *Manager) Remove() error {
 	}
 	m.Stop()
 	return os.RemoveAll(m.dir)
+}
+
+// Peers lists the other devices on the tailnet, online ones first. It returns
+// nothing while the node is not connected.
+func (m *Manager) Peers(ctx context.Context) []Peer {
+	m.mu.Lock()
+	srv, up := m.srv, m.st.State == StateUp
+	m.mu.Unlock()
+	if srv == nil || !up {
+		return nil
+	}
+	lc, err := srv.LocalClient()
+	if err != nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	st, err := lc.Status(ctx)
+	if err != nil {
+		return nil
+	}
+	var out []Peer
+	for _, p := range st.Peer {
+		pe := Peer{Name: p.HostName, DNSName: strings.TrimSuffix(p.DNSName, "."), OS: p.OS, Online: p.Online}
+		for _, ip := range p.TailscaleIPs {
+			pe.IPs = append(pe.IPs, ip.String())
+		}
+		out = append(out, pe)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Online != out[j].Online {
+			return out[i].Online
+		}
+		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
+	})
+	return out
 }
 
 // Dial connects to addr (host:port) through the tailnet.
