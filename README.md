@@ -1,6 +1,14 @@
 # Switchboard
 
-Self-hosted SSH and RDP client that runs in Docker: one container, one volume.
+A self-hosted SSH and RDP client for your browser. One Docker container, one volume, one port.
+
+Open terminals and remote desktops in tabs and split panes, from any device, with your passwords and keys
+kept encrypted on a server you control.
+
+> **This project is vibe coded.** Switchboard was written almost entirely by an AI (Claude, through Claude
+> Code), with me directing, testing and reviewing it. I'm telling you up front because this software holds
+> your SSH keys and server passwords, and you should decide how much to trust it with that. The
+> [security section](#how-security-works) says exactly what it does, and what it doesn't.
 
 ## Run
 
@@ -8,142 +16,71 @@ Self-hosted SSH and RDP client that runs in Docker: one container, one volume.
 docker compose up -d
 ```
 
-Then open `http://<server-ip>:3000` (or a DNS name that points at it, such as `http://switchboard.local:3000`).
-The first visit sets up the owner account. Everything Switchboard stores lives in the `switchboard-data` volume.
+Open `http://<server-ip>:3000`. The first visit creates the owner account. Everything is stored in the
+`switchboard-data` volume. For HTTPS (recommended, and needed for installing it as an app), put a reverse
+proxy in front: see [HTTPS and reverse proxies](docs/guide.md#https-and-reverse-proxies).
 
-## SSH
+## What it does
 
-Add hosts (optionally in nested folders), sign in with a saved password or an SSH identity, and open
-terminals in browser tabs. Press Ctrl+K to search hosts. Host keys are trusted on first use; if a
-server's key later changes, the tab blocks with a warning until you explicitly accept the new key.
-Dropped connections reconnect automatically. Credentials are decrypted on the server at connect
-time and are never sent to the browser. Private keys leave only through an explicit, password-confirmed export.
+- **SSH terminals** with nested host folders, saved passwords or SSH keys, automatic reconnect, and Ctrl+K search.
+- **Remote desktops (RDP)** in the same tabs, with clipboard, file transfer, audio and per-host display settings.
+- **Split panes**: up to six sessions side by side in one tab.
+- **Saved commands**: a bar under each terminal with commands you use often.
+- **Key management**: generate or import SSH keys, and push a public key to many hosts at once.
+- **Tailscale built in**: each user can join their own tailnet from Settings, then reach hosts by tailnet name or IP.
+- **Several users**, each with their own encrypted vault, optional two-factor sign-in, and recovery key.
+- **Works on a phone**, installs as an app over HTTPS, and aims for WCAG 2.2 AA accessibility.
 
-### Pushing keys
+The details are in the [guide](docs/guide.md).
 
-On the Identities tab, **Push to hosts…** puts an identity's public key on any number of hosts
-(generating a new identity offers this straight away). For each host, Switchboard signs in with its
-current credentials, creates `~/.ssh` (700) and `authorized_keys` (600) if needed, adds the key unless
-it is already there, then signs in again with only the new key. Only if that works does the host switch
-to the identity. Each host reports its own result: added, already there, authentication failed,
-permission denied, unreachable, host key not trusted, or key added but login with it failed.
+## How security works
 
-- A pushed host's saved password is kept, so you can switch back; use *Forget the saved password* in
-  the host editor to remove it.
-- Pushes never prompt about host keys. Open a host in a terminal once and trust its key first.
-- Targets need a POSIX shell. Windows OpenSSH and network gear report that they aren't supported.
-- Removing a pushed key from servers isn't built yet: the key stays in `authorized_keys` until you remove it.
+This is what Switchboard does to protect what you store in it.
 
-### Remote desktops (RDP)
+**Your secrets are encrypted twice.**
+- Every user has a random vault key. Passwords and private keys are encrypted with it (XChaCha20-Poly1305),
+  and the vault key itself is locked by a key derived from your account password with Argon2id.
+- A master key, generated on first start and never supplied by a person, wraps everything again as an outer
+  layer. Back it up from Settings (it asks for your password); without it nothing can be decrypted.
+- Account passwords are stored only as Argon2id hashes. Each encrypted record is bound to its own ID, so
+  records can't be swapped for one another.
 
-Add a host with type *Remote desktop (RDP)* and open it like any other: it appears in a tab or in a
-split pane beside terminals. Switchboard hands the connection to `guacd` (the Apache Guacamole proxy,
-which is built into the same container) and streams the desktop to your browser; the host's password is added on the
-server and never reaches the browser.
+**Secrets stay on the server.**
+- Saved passwords and keys are decrypted only while connecting, and are never sent to your browser.
+  Viewing a saved password or exporting a private key asks for your account password again.
+- Saved commands are encrypted the same way, per user.
 
-- **Resolution** follows the pane, so resizing the window or a divider resizes the remote desktop.
-- **Reconnect:** a dropped connection retries with backoff and returns to your Windows session.
-- **Clipboard:** text copies both ways. Browsers only allow automatic clipboard access over HTTPS, so
-  on plain `http://ip:3000` paste works with Ctrl+V and text copied on the desktop waits in the
-  *Clipboard* panel. Put Switchboard behind a TLS reverse proxy for fully automatic sync.
-- **Files:** the *Files* panel uploads to, and downloads from, a drive called "Switchboard" on the remote
-  desktop. You can also drop files onto the desktop. They sit in a temporary folder inside the container
-  (`/tmp/switchboard-transfer`) that is emptied when a session ends and whenever the container restarts.
-  To keep them in memory instead of on disk, add `tmpfs: ["/tmp:size=512m"]` to the service.
-- **Audio** from the remote machine plays in the browser. Your first click in the pane starts it.
-- **Ctrl+Alt+Del** has its own button, since browsers can't send it.
-- **Certificates:** Windows machines usually present self-signed certificates, so *Accept self-signed
-  certificates* is on by default. Turn it off per host on networks you don't trust.
-- `DOMAIN\user` works as a username. Set `SWITCHBOARD_MAX_RDP` (default 10) to limit concurrent desktops.
+**Sign-in and sessions.**
+- Sessions use 256-bit random tokens in `HttpOnly`, `SameSite=Strict` cookies (also `Secure` behind HTTPS),
+  kept in server memory only, with an idle timeout. Restarting the server signs everyone out.
+- Sign-in, two-factor and password checks are rate limited, compare in constant time, and do the same work for
+  unknown usernames. Two-factor (TOTP) codes work once and there are backup codes. An admin can require it.
 
-Not included yet: microphone, printing, multiple monitors, other keyboard layouts (US only), and a polished on-screen keyboard on phones (typing there is best effort).
-The image is built on `guacamole/guacd:1.6.0`, which is published for both amd64 and arm64.
+**Connections.**
+- SSH host keys are trusted on first use. If a key later changes, the connection stops with a warning until
+  you accept it. Switchboard never skips host key checks.
+- The RDP gateway (`guacd`) listens on the container's loopback only and runs as an unprivileged user.
+- Each user's Tailscale connection is their own, and is used only for their own hosts.
 
-### Split panes
+**The web app.**
+- A strict content security policy, no framing, JSON-only writes, WebSocket origin checks, and no third-party
+  scripts: the few libraries it ships are vendored, and a test fails if any of them changes.
 
-Each terminal tab can be split right or down into up to six panes, each its own session. Drag the dividers to resize.
+**The build.**
+- Go tests, a browser walkthrough of every screen, an accessibility scan (axe-core) and `govulncheck` run on every push.
+- GitHub Actions are pinned to commit hashes and base images to digests, and Dependabot proposes updates weekly.
+- The dependencies are few and well known: `golang.org/x/crypto`, `modernc.org/sqlite`, `coder/websocket`,
+  `tailscale.com`, and the Apache Guacamole proxy and client.
 
-xterm.js 5.5.0, its fit addon and guacamole-common-js 1.5.0 (Apache-2.0, license kept beside it) are vendored in `cmd/switchboard/web/vendor`, so the page loads nothing from a CDN.
+**What it doesn't do.**
+- It has had **no independent security audit or penetration test.** Everything above is described by its own author,
+  an AI, and checked only by its own tests.
+- While you are signed in, your vault key sits in the server's memory, so anyone who controls the running server
+  can use your sessions. Run it on a machine you trust.
+- Out of the box it speaks plain HTTP. Put it behind HTTPS before exposing it beyond your own network.
+- The master key lives in the same volume as the database unless you [move it](docs/guide.md#master-key).
 
-## Saved commands
-
-Under every SSH terminal is a bar of your saved commands. Click one to type it at the cursor, or
-Shift-click to run it; a command with several lines always asks first. Use **+** to add one and the pencil
-to edit, reorder or delete them, and the arrow to hide the bar (bring it back from the search, Ctrl K).
-`{{host}}` and `{{user}}` in a command are replaced with the host's address and username. Commands belong
-to your account and are stored encrypted in your vault. Remote desktops don't show the bar.
-
-## Accessibility
-
-Switchboard aims for WCAG 2.2 level AA: every control works from the keyboard, text meets contrast
-minimums in both themes, and dialogs and prompts are announced by screen readers. Inside a terminal or
-remote desktop every key goes to the remote side, so press **Shift+Escape** to move focus back to the
-pane's buttons. `tests/ui/a11y.sh` runs an automated axe-core check of every screen.
-
-## Tailscale
-
-Switchboard can join your tailnet itself, with nothing extra to run, and every user does it for themselves.
-Open **Settings → Tailscale**, turn it on and either sign in with Tailscale or paste an auth key (create one in
-the Tailscale admin console under Settings → Keys). Each user gets their own device on their own tailnet, so
-one person can be on a tailnet while another is not, and a user's tailnet is only used for their own hosts.
-The key is used once to join and is never stored; each device's identity is kept under `/data/tailscale`,
-so it rejoins by itself after a restart. If you ran an earlier version with a single server-wide node, it
-now belongs to the first admin.
-
-- **Reaching hosts:** an SSH or RDP host whose address is a Tailscale IP (`100.x.y.z`) or a `*.ts.net` name
-  is reached over the tailnet. Any other name is looked up with the container's normal DNS first, so LAN
-  and public names work exactly as before; if that finds nothing, such as a MagicDNS short name like
-  `nas`, the lookup is made on your tailnet. A name that resolves to a Tailscale address uses the tailnet too.
-- **Devices:** while connected, the Tailscale page lists the other devices on your tailnet, with a button to
-  add one as a host.
-- **Opening Switchboard from the tailnet:** with *Open the web UI on the tailnet* on, the page is also
-  served on port 3000 of your device name (`switchboard-<username>` unless you change it), from any
-  device on your tailnet. Port 3000 on the host keeps working either way.
-- **Removing it:** *Remove from tailnet* logs the device out and forgets it. If the device is offline when
-  you do this, delete it in the Tailscale admin console too. Deleting a user removes their device the same way.
-
-RDP goes through a small loopback relay inside the container, because guacd can't use the embedded node.
-Network Level Authentication works with it, but not Kerberos. Tailscale SSH and exit nodes aren't supported.
-
-## HTTPS and reverse proxies
-
-Switchboard speaks plain HTTP on port 3000. To use it over HTTPS (needed to install it as an app and for
-automatic clipboard sync), put a reverse proxy in front. Sample configs:
-
-| Proxy | File |
-|---|---|
-| Caddy (certificates are automatic) | [`deploy/Caddyfile`](deploy/Caddyfile) |
-| nginx | [`deploy/nginx.conf`](deploy/nginx.conf) |
-| Traefik (Docker labels) | [`deploy/docker-compose.traefik.yml`](deploy/docker-compose.traefik.yml) |
-
-Whatever you use, it has to:
-
-- pass **WebSocket upgrades** through (terminals and desktops are WebSockets);
-- pass the **`Host` header unchanged, including any port**: Switchboard checks it against the page's origin;
-- send **`X-Forwarded-Proto: https`**, so cookies are marked Secure;
-- not cut idle connections quickly. Switchboard pings each terminal every 25 seconds, so any idle timeout above
-  that is fine.
-
-Once a proxy handles TLS, stop publishing port 3000 to the network (the Traefik file shows how to bind it to
-localhost).
-
-## Install as an app
-
-Over HTTPS (or on `localhost`), browsers offer to install Switchboard as an app with its own window and icon.
-A service worker keeps the app's own files available if the server is briefly unreachable; it never stores
-anything from the API. Over plain `http://<ip>:3000` the install option isn't offered, because browsers only allow
-service workers on secure origins. Phones can still add the page to the home screen as a shortcut.
-
-## Master key
-
-On first start Switchboard generates a master key in `/data/keys`. Every stored secret is
-encrypted with it as an outer layer. It cannot be supplied or replaced. Download a copy from
-Settings, Server (it asks for your password) and keep it somewhere other than this server:
-if the key is lost, no vault can be opened.
-
-The key sits in the same volume as the database, so a copy of the whole volume contains both.
-Your vault contents are still protected by each person's password. To keep the key apart, mount a
-second volume and point `SWITCHBOARD_KEYS_DIR` at it. To restore an instance, restore the `/data` volume.
+Found a problem? Please open an issue, or contact me privately for anything sensitive.
 
 ## Configuration
 
@@ -159,12 +96,8 @@ Everything has a working default. These are optional:
 | `SWITCHBOARD_TRANSFER_DIR` | `/tmp/switchboard-transfer` | scratch space for desktop file transfer |
 | `SWITCHBOARD_GUACD` | built in | `host:port` of a guacd elsewhere, instead of the bundled one |
 
-## Design system
+## More
 
-The interface is built from one set of tokens and components, enforced by tests. See
-[`docs/design-system.md`](docs/design-system.md), and open `/design.html` on a running instance for the
-living style guide.
-
-## Images
-
-Multi-arch (amd64, arm64) images are published to `ghcr.io/thatguy-za/switchboard` on every push to `main` (`edge`) and every `v*` tag (`latest`, version tags).
+- [Guide](docs/guide.md): SSH keys, remote desktops, saved commands, Tailscale, HTTPS, installing as an app, the master key
+- [Design system](docs/design-system.md), and `/design.html` on a running instance for the style guide
+- Multi-arch (amd64, arm64) images are published to `ghcr.io/thatguy-za/switchboard`: `edge` for every push to `main`, and `latest` plus version tags for every `v*` release
