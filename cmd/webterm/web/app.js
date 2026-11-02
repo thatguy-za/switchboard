@@ -402,8 +402,8 @@ function buildShell() {
           <button class="nav" id="ts-status" type="button" hidden></button>
           <button class="nav" data-view="identities">${icon('key')}Identities</button>
           <button class="nav" data-view="settings">${icon('settings')}Settings<span class="badge" id="navflag" hidden></span></button>
-          <div class="version">Version ${esc(state.version || 'dev')}</div>
           <div class="me"><span id="avatar"></span><span class="grow" id="whoami"></span>${iconButton('logout', 'Sign out', 'id="out"')}</div>
+          <div class="version">Version ${esc(state.version || 'dev')}</div>
         </div>
       </aside>
       <div class="scrim" id="scrim"></div>
