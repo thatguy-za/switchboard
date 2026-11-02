@@ -5,10 +5,27 @@ A self-hosted SSH and RDP client for your browser. One Docker container, one vol
 Open terminals and remote desktops in tabs and split panes, from any device, with your passwords and keys
 kept encrypted on a server you control.
 
+![Switchboard: a terminal on a saved host, with the sidebar, search and a bar of saved commands](docs/screenshots/workspace.png)
+
 > **This project is vibe coded.** Switchboard was written almost entirely by an AI (Claude, through Claude
 > Code), with me directing, testing and reviewing it. I'm telling you up front because this software holds
 > your SSH keys and server passwords, and you should decide how much to trust it with that. The
 > [security section](#how-security-works) says exactly what it does, and what it doesn't.
+
+## Screenshots
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/split-panes.png" alt="Two terminals side by side in split panes"><br><sub>Split panes: terminals and desktops side by side</sub></td>
+<td width="50%"><img src="docs/screenshots/search.png" alt="The Ctrl+K search listing hosts and actions"><br><sub>Ctrl+K search finds any host or action</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/screenshots/rdp-settings.png" alt="The host dialog for a remote desktop, with display and device settings"><br><sub>Remote desktops, with per-host display settings</sub></td>
+<td width="50%"><img src="docs/screenshots/light.png" alt="The light theme"><br><sub>Light and dark themes</sub></td>
+</tr>
+</table>
+
+<p align="center"><img src="docs/screenshots/phone.png" alt="A terminal on a phone, with the saved commands bar and Esc, Ctrl, Tab and arrow keys" width="280"><br><sub>On a phone, with a key row for Esc, Ctrl, Tab and the arrows</sub></p>
 
 ## Run
 
