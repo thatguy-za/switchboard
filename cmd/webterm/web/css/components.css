@@ -212,6 +212,8 @@ dialog.palette { width: min(var(--w-palette), calc(100% - var(--s-12))); margin:
 .nav { display: flex; align-items: center; gap: var(--s-5); height: var(--h-nav); padding: 0 var(--s-5); width: 100%; justify-content: flex-start; border: 0; background: transparent; color: var(--text-2); border-radius: var(--r-sm); font-weight: var(--fw-regular); }
 .nav:hover { background: var(--surface-hover); color: var(--text); }
 .nav[aria-current=page] { background: var(--surface-selected); color: var(--text); }
+.nav[hidden] { display: none; }
+.nav .state { margin-left: auto; font-size: var(--fs-2xs); color: var(--text-3); }
 .nav .badge { margin-left: auto; width: var(--size-dot); height: var(--size-dot); border-radius: 50%; background: var(--warn); }
 .subnav { display: grid; gap: var(--s-1); position: sticky; top: 0; }
 .subnav button { justify-content: flex-start; height: var(--h-nav); border: 0; background: transparent; color: var(--text-2); font-weight: var(--fw-regular); gap: var(--s-5); padding: 0 var(--s-5); }

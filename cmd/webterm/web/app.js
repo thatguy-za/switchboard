@@ -291,6 +291,7 @@ async function renderTailscale(host) {
   clearTimeout(tsTimer);
   let t;
   try { t = await api('GET', '/tailscale'); } catch (e) { host.innerHTML = notice('alert-triangle', esc(e.message)); return; }
+  showTailscaleStatus(t);
   if (!host.isConnected || settingsTab !== 'tailscale') return;
   const up = t.state === 'connected';
   const status = {
@@ -383,6 +384,7 @@ async function signOutEverywhere() {
 }
 
 function teardownShell() {
+  clearInterval(tsPoll);
   destroyWorkspace();
   shell = null;
 }
@@ -397,6 +399,7 @@ function buildShell() {
         <div class="side-actions">${button('Host', { kind: 'sm', icon: 'plus', attrs: 'id="add-host"' })}${button('Folder', { kind: 'sm', icon: 'folder-plus', attrs: 'id="add-folder"' })}</div>
         <div class="tree" id="tree"></div>
         <div class="side-foot">
+          <button class="nav" id="ts-status" type="button" hidden></button>
           <button class="nav" data-view="identities">${icon('key')}Identities</button>
           <button class="nav" data-view="settings">${icon('settings')}Settings<span class="badge" id="navflag" hidden></span></button>
           <div class="version">Version ${esc(state.version || 'dev')}</div>
@@ -423,6 +426,28 @@ function buildShell() {
   renderSettings();
   updateNav();
   showView('terminals');
+  $('#ts-status', shell).addEventListener('click', () => { settingsTab = 'tailscale'; renderSettings(); showView('settings'); });
+  pollTailscale();
+  tsPoll = setInterval(() => { if (!document.hidden) pollTailscale(); }, 30000);
+}
+
+// The sidebar shows the signed-in user's own Tailscale state, once they have turned it on.
+let tsPoll = null;
+async function pollTailscale() {
+  try { showTailscaleStatus(await api('GET', '/tailscale')); } catch (e) { /* keep what is shown */ }
+}
+
+function showTailscaleStatus(t) {
+  const b = shell && $('#ts-status', shell);
+  if (!b) return;
+  const shown = {
+    connected: ['live', 'Connected'], starting: t.login_url ? ['connecting', 'Sign-in needed'] : ['connecting', 'Connecting…'],
+    needs_key: ['fatal', 'Needs a key'], error: ['fatal', 'Problem'],
+  }[t.state];
+  b.hidden = !t.enabled || !shown;
+  if (b.hidden) return;
+  b.innerHTML = `<span class="dot ${shown[0]}" aria-hidden="true"></span>Tailscale<span class="state">${shown[1]}</span>`;
+  b.setAttribute('aria-label', `Tailscale: ${shown[1]}. Open Tailscale settings`);
 }
 
 const PHONE = window.matchMedia('(max-width: 760px)');

@@ -268,6 +268,19 @@ const dlg = () => page.locator('dialog[open]');
     await page.click('#menu');
     if (!(await page.locator('#side').isVisible())) throw new Error('the sidebar did not come back');
   });
+  await step('tailscale status in the sidebar', async () => {
+    const reply = { enabled: true, state: 'connected', hostname: 'webterm-owner', serve_ui: true, port: 3000, has_state: true, peers: [] };
+    await page.route('**/api/tailscale', r => (r.request().method() === 'GET' ? r.fulfill({ json: reply }) : r.continue()));
+    await page.evaluate(() => pollTailscale());
+    await page.locator('#ts-status:visible').waitFor();
+    if (!/Connected/.test(await page.locator('#ts-status').innerText())) throw new Error('the sidebar does not say Connected');
+    await snap('26c-tailscale-status');
+    await page.click('#ts-status');
+    await page.waitForSelector('#ts .panel');
+    await page.unroute('**/api/tailscale');
+    await page.evaluate(() => pollTailscale());
+    await page.locator('#ts-status').waitFor({ state: 'hidden' });
+  });
   await step('light theme', async () => {
     await nav('appearance');
     await page.click('.seg button[data-theme=light]');
