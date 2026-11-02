@@ -40,6 +40,7 @@ type Config struct {
 	Guacd            string // host:port of guacd, for RDP
 	TransferDir      string // folder shared with guacd for RDP file transfer; empty turns it off
 	MaxRDP           int    // concurrent RDP sessions allowed
+	TrustProxy       bool   // take the client address from X-Forwarded-For, for rate limits
 }
 
 type Server struct {
@@ -207,7 +208,18 @@ func (s *Server) setCookie(w http.ResponseWriter, r *http.Request, name, value s
 	})
 }
 
-func clientIP(r *http.Request) string {
+// clientIP is who the rate limits count. Behind a reverse proxy every request
+// arrives from the proxy, so with TrustProxy it reads the address the proxy
+// appended to X-Forwarded-For (the last one: earlier ones come from the client).
+func (s *Server) clientIP(r *http.Request) string {
+	if s.cfg.TrustProxy {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			parts := strings.Split(xff, ",")
+			if ip := strings.TrimSpace(parts[len(parts)-1]); net.ParseIP(ip) != nil {
+				return ip
+			}
+		}
+	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr

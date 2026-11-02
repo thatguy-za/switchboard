@@ -49,7 +49,7 @@ func (s *Server) startSession(w http.ResponseWriter, r *http.Request, u *store.U
 }
 
 func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
-	if !s.limit.allow(clientIP(r)) {
+	if !s.limit.allow(s.clientIP(r)) {
 		apiErr(w, http.StatusTooManyRequests, "rate_limited")
 		return
 	}
@@ -88,7 +88,7 @@ func (s *Server) failure(w http.ResponseWriter, u *store.User, code string) {
 func isLocked(u *store.User) bool { return u.LockedUntil > time.Now().Unix() }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
-	if !s.limit.allow(clientIP(r)) {
+	if !s.limit.allow(s.clientIP(r)) {
 		apiErr(w, http.StatusTooManyRequests, "rate_limited")
 		return
 	}
@@ -126,7 +126,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogin2FA(w http.ResponseWriter, r *http.Request) {
-	if !s.limit.allow(clientIP(r)) {
+	if !s.limit.allow(s.clientIP(r)) {
 		apiErr(w, http.StatusTooManyRequests, "rate_limited")
 		return
 	}
@@ -233,7 +233,7 @@ func (s *Server) handlePassword(w http.ResponseWriter, r *http.Request, a *authe
 }
 
 func (s *Server) handleRecover(w http.ResponseWriter, r *http.Request) {
-	if !s.limit.allow(clientIP(r)) {
+	if !s.limit.allow(s.clientIP(r)) {
 		apiErr(w, http.StatusTooManyRequests, "rate_limited")
 		return
 	}

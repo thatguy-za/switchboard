@@ -65,8 +65,8 @@ const switchControl = ({ id, checked = false, disabled = false, label }) =>
 const checkField = (name, label, hint = '', attrs = '', checked = false) =>
   `<label class="check" ${attrs}><input type="checkbox" name="${esc(name)}"${checked ? ' checked' : ''}> ${label}${hint ? `<span class="small">${hint}</span>` : ''}</label>`;
 const hostRow = (h, { depth = 0, live = false, kebab = true } = {}) => `
-  <div class="row host d${Math.min(depth, 6)}" tabindex="0" role="button" data-host="${esc(h.id)}" aria-label="Open ${esc(h.name)}">
-    ${icon(h.protocol === 'rdp' ? 'device-desktop' : 'terminal-2')}<span class="name">${esc(h.name)}</span>${live ? '<span class="dot live" title="Connected"></span>' : ''}
+  <div class="row host d${Math.min(depth, 6)}">
+    <button type="button" class="row-main" data-host="${esc(h.id)}" aria-label="Open ${esc(h.name)}${live ? ' (connected)' : ''}">${icon(h.protocol === 'rdp' ? 'device-desktop' : 'terminal-2')}<span class="name">${esc(h.name)}</span>${live ? '<span class="dot live" aria-hidden="true"></span>' : ''}</button>
     ${kebab ? iconButton('dots', `Edit ${h.name}`, `data-edit-host="${esc(h.id)}"`, 'kebab') : ''}
   </div>`;
 
@@ -135,12 +135,15 @@ function copyText(text, label = 'Copied') {
 /* ---------- dialogs ---------- */
 
 // A modal form. onSubmit gets the FormData and the dialog; throwing keeps it open and shows the message.
+let dialogSeq = 0;
 function dialog(title, body, { onSubmit, submitLabel = 'Save', extra = '', actions = '', wide = false, description = '' } = {}) {
   const d = el('dialog', wide ? 'wide' : '');
+  const titleId = 'dlg-title-' + (++dialogSeq);
+  d.setAttribute('aria-labelledby', titleId);
   d.innerHTML = `<form class="dlg">
-    <div class="dlg-head"><h2>${esc(title)}</h2>${iconButton('x', 'Close', 'data-cancel')}</div>
+    <div class="dlg-head"><h2 id="${titleId}">${esc(title)}</h2>${iconButton('x', 'Close', 'data-cancel')}</div>
     <div class="dlg-body">${description ? `<p class="muted">${description}</p>` : ''}${body}</div>
-    <div class="dlg-foot"><span class="err"></span>${extra ? `<span class="left">${extra}</span>` : ''}
+    <div class="dlg-foot"><span class="err" role="alert"></span>${extra ? `<span class="left">${extra}</span>` : ''}
       ${onSubmit ? '<button type="button" class="quiet" data-cancel>Cancel</button>' : ''}
       ${onSubmit ? `<button class="primary">${esc(submitLabel)}</button>` : `<button type="button" class="${actions ? 'quiet' : ''}" data-cancel>${actions ? 'Close' : 'Done'}</button>${actions}`}</div>
   </form>`;

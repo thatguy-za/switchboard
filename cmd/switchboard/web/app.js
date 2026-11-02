@@ -380,7 +380,8 @@ function teardownShell() {
 function buildShell() {
   app.innerHTML = `
     <div class="shell" id="shell">
-      <aside class="side" id="side">
+      <a class="skip" href="#main" id="skip">Skip to main content</a>
+      <aside class="side" id="side" aria-label="Hosts">
         <div class="side-head"><div class="wordmark">${icon('logo')}Switchboard</div></div>
         <button class="find" id="find">${icon('search')}<span class="grow">Search or connect</span><span class="kbd">${IS_MAC ? '⌘K' : 'Ctrl K'}</span></button>
         <div class="side-actions">${button('Host', { kind: 'sm', icon: 'plus', attrs: 'id="add-host"' })}${button('Folder', { kind: 'sm', icon: 'folder-plus', attrs: 'id="add-folder"' })}</div>
@@ -392,15 +393,16 @@ function buildShell() {
         </div>
       </aside>
       <div class="scrim" id="scrim"></div>
-      <div class="main">
+      <main class="main" id="main" tabindex="-1">
         <div class="topbar">${iconButton('menu-2', 'Open menu', 'id="menu"')}<div class="wordmark">${icon('logo')}Switchboard</div></div>
         <div class="view" id="view-terminals"></div>
         <div class="view" id="view-identities" hidden></div>
         <div class="view" id="view-settings" hidden></div>
-      </div>
+      </main>
     </div>`;
   shell = $('#shell');
   shell.querySelectorAll('.nav[data-view]').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+  $('#skip', shell).addEventListener('click', ev => { ev.preventDefault(); $('#main', shell).focus(); });
   $('#out', shell).addEventListener('click', signOut);
   $('#menu', shell).addEventListener('click', () => toggleSide(true));
   $('#scrim', shell).addEventListener('click', () => toggleSide(false));
@@ -419,6 +421,7 @@ function showView(name) {
   if (!shell) return;
   toggleSide(false);
   for (const v of ['terminals', 'identities', 'settings']) $('#view-' + v, shell).hidden = v !== name;
+  document.title = (name === 'terminals' ? '' : name[0].toUpperCase() + name.slice(1) + ' · ') + 'Switchboard';
   shell.querySelectorAll('.nav[data-view]').forEach(b => {
     if (b.dataset.view === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });

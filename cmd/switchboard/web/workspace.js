@@ -126,8 +126,8 @@ function renderTree() {
     let out = '';
     for (const f of WS.folders.filter(x => x.parent_id === parent).sort(byName)) {
       const open = !collapsed.has(f.id);
-      out += `<div class="row folder d${Math.min(depth, 6)}" tabindex="0" role="button" data-folder="${esc(f.id)}" aria-expanded="${open}">
-        ${icon('chevron-down', 'chev sm')}<span class="name">${esc(f.name)}</span>
+      out += `<div class="row folder d${Math.min(depth, 6)}">
+        <button type="button" class="row-main" data-folder="${esc(f.id)}" aria-expanded="${open}">${icon('chevron-down', 'chev sm')}<span class="name">${esc(f.name)}</span></button>
         ${iconButton('dots', `Edit folder ${f.name}`, `data-edit-folder="${esc(f.id)}"`, 'kebab')}</div>`;
       if (open) out += walk(f.id, depth + 1);
     }
@@ -154,11 +154,6 @@ function bindTree() {
       renderTree();
     }
   });
-  tree.addEventListener('keydown', ev => {
-    if (ev.key !== 'Enter' || ev.target.closest('button')) return;
-    const row = ev.target.closest('.row');
-    if (row) row.click();
-  });
 }
 
 function renderWelcome() {
@@ -175,13 +170,12 @@ function renderWelcome() {
   box.innerHTML = `<div class="welcome-in">${icon('logo', 'mark')}
     <div><h1>${recent.length ? 'Pick up where you left off' : 'Open a host'}</h1>
       <p class="sub muted">${recent.length ? 'Your recent hosts.' : 'Choose one from the sidebar.'}</p></div>
-    ${recent.length ? `<div class="recent">${recent.map(h => `<div class="row host" tabindex="0" role="button" data-open="${esc(h.id)}">${icon(protoIcon(h))}<span class="name">${esc(h.name)}</span>
-      <span class="faint small">${esc((h.username ? h.username + '@' : '') + h.address)}</span></div>`).join('')}</div>` : ''}
+    ${recent.length ? `<div class="recent">${recent.map(h => `<button type="button" class="row host" data-open="${esc(h.id)}">${icon(protoIcon(h))}<span class="name">${esc(h.name)}</span>
+      <span class="faint small">${esc((h.username ? h.username + '@' : '') + h.address)}</span></button>`).join('')}</div>` : ''}
     <p class="hint small">${icon('search', 'sm')}Search everything with <span class="kbd">${IS_MAC ? '⌘K' : 'Ctrl K'}</span></p></div>`;
   box.querySelectorAll('[data-open]').forEach(r => {
     const go = () => openHost(WS.hosts.find(h => h.id === r.dataset.open));
     r.addEventListener('click', go);
-    r.addEventListener('keydown', ev => { if (ev.key === 'Enter') go(); });
   });
 }
 
@@ -374,7 +368,8 @@ function openPalette(opts = {}) {
   const pick = opts.onPick;
   const d = el('dialog', 'palette');
   d.innerHTML = `<div class="pal-input">${icon('search')}<input type="text" placeholder="${esc(pick ? (opts.placeholder || 'Choose a host') : 'Search hosts, or type user@host to connect')}"
-    autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Search" role="combobox" aria-expanded="true"></div><div class="pal-list" role="listbox"></div>`;
+    autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="${pick ? 'Choose a host' : 'Search hosts and actions'}" role="combobox" aria-expanded="true" aria-controls="pal-list" aria-autocomplete="list"></div>
+    <div class="pal-list" id="pal-list" role="listbox" tabindex="-1" aria-label="Results"></div>`;
   document.body.appendChild(d);
   d.addEventListener('close', () => d.remove());
   const input = d.querySelector('input');
@@ -418,15 +413,24 @@ function openPalette(opts = {}) {
     items = groups.flatMap(g => g[1]);
     cursor = Math.min(cursor, Math.max(items.length - 1, 0));
     let n = 0;
-    list.innerHTML = items.length ? groups.map(([title, rows]) => `<div class="pal-group">${esc(title)}</div>${rows.map(r =>
-      `<div class="pal-row${n++ === cursor ? ' on' : ''}" role="option" data-i="${n - 1}">${icon(r.icon)}<span>${esc(r.label)}</span>${r.hint ? `<span class="hint">${esc(r.hint)}</span>` : ''}</div>`).join('')}`).join('')
-      : `<div class="pal-empty">${pick ? 'No matching hosts.' : 'Nothing matches.'}</div>`;
+    list.innerHTML = items.length ? groups.map(([title, rows]) => `<div role="group" aria-label="${esc(title)}"><div class="pal-group" aria-hidden="true">${esc(title)}</div>${rows.map(r =>
+      `<div class="pal-row${n++ === cursor ? ' on' : ''}" role="option" id="pal-opt-${n - 1}" aria-selected="${n - 1 === cursor}" data-i="${n - 1}">${icon(r.icon)}<span>${esc(r.label)}</span>${r.hint ? `<span class="hint">${esc(r.hint)}</span>` : ''}</div>`).join('')}</div>`).join('')
+      : `<div class="pal-empty" role="option" aria-disabled="true">${pick ? 'No matching hosts.' : 'Nothing matches.'}</div>`;
+    setActive();
+  };
+  const setActive = () => {
+    list.querySelectorAll('.pal-row').forEach(r => {
+      const on = Number(r.dataset.i) === cursor;
+      r.classList.toggle('on', on);
+      r.setAttribute('aria-selected', on);
+    });
+    if (items.length) input.setAttribute('aria-activedescendant', 'pal-opt-' + cursor); else input.removeAttribute('aria-activedescendant');
   };
   const run = i => { const it = items[i]; if (!it) return; d.close(); setTimeout(it.run, 0); };
   const move = delta => {
     if (!items.length) return;
     cursor = (cursor + delta + items.length) % items.length;
-    list.querySelectorAll('.pal-row').forEach(r => r.classList.toggle('on', Number(r.dataset.i) === cursor));
+    setActive();
     const on = list.querySelector('.pal-row.on');
     if (on) on.scrollIntoView({ block: 'nearest' });
   };
@@ -439,7 +443,7 @@ function openPalette(opts = {}) {
   list.addEventListener('click', ev => { const r = ev.target.closest('.pal-row'); if (r) run(Number(r.dataset.i)); });
   list.addEventListener('mousemove', ev => {
     const r = ev.target.closest('.pal-row');
-    if (r && Number(r.dataset.i) !== cursor) { cursor = Number(r.dataset.i); list.querySelectorAll('.pal-row').forEach(x => x.classList.toggle('on', x === r)); }
+    if (r && Number(r.dataset.i) !== cursor) { cursor = Number(r.dataset.i); setActive(); }
   });
   d.addEventListener('click', ev => { if (ev.target === d) d.close(); });
   draw();
@@ -506,10 +510,15 @@ function setCtrl(on) {
 }
 
 // Overlays sit over a pane to say what is happening or ask a question.
+let overlaySeq = 0;
 function showOverlay(sess, { title, text = '', tone = '', buttons = [] }) {
   const o = sess.overlay;
   o.hidden = false;
-  o.innerHTML = `<div class="tbox ${tone}"><div class="title">${tone === 'danger' ? icon('alert-triangle') : ''}${title}</div>${text ? `<div class="text">${text}</div>` : ''}<div class="actions"></div></div>`;
+  const oid = sess.ovId = sess.ovId || ++overlaySeq;
+  o.innerHTML = `<div class="tbox ${tone}" role="alertdialog" aria-labelledby="ov-title-${oid}" ${text ? `aria-describedby="ov-text-${oid}"` : ''}>
+    <div class="tb-head">${tone === 'danger' ? `<span class="tb-icon">${icon('alert-triangle')}</span>` : ''}
+      <div class="tb-copy"><div class="title" id="ov-title-${oid}">${title}</div>${text ? `<div class="text" id="ov-text-${oid}">${text}</div>` : ''}</div></div>
+    <div class="actions"></div></div>`;
   const actions = o.querySelector('.actions');
   for (const b of buttons) {
     if (b.close) {
@@ -602,6 +611,15 @@ function ensureOpen(sess) {
   if (sess.opened) return;
   sess.opened = true;
   sess.term.open(sess.holder);
+  // Tab belongs to the shell, so Shift+Escape is the way out for keyboard users.
+  sess.term.textarea.setAttribute('aria-label', `Terminal for ${sess.host.name}. Press Shift+Escape to leave it.`);
+  sess.term.attachCustomKeyEventHandler(ev => {
+    if (ev.type === 'keydown' && ev.key === 'Escape' && ev.shiftKey) {
+      sess.head.querySelector('button').focus();
+      return false;
+    }
+    return true;
+  });
   sess.term.onData(d => sendInput(sess, d));
   sess.term.onBinary(d => { if (sess.state === 'live' && sess.sock.readyState === 1) sess.sock.send(Uint8Array.from(d, c => c.charCodeAt(0))); });
   sess.term.onResize(({ cols, rows }) => sendCtl(sess, { type: 'resize', cols, rows }));
@@ -639,6 +657,8 @@ function connect(sess) {
   sock.onclose = ev => { if (sess.sock === sock && !sess.closed) onClosed(sess, ev); };
 }
 
+const sentence = t => (t ? t[0].toUpperCase() + t.slice(1) : '');
+
 function onControl(sess, m) {
   const retry = { label: 'Retry', cls: 'primary', fn: () => { sess.retries = 0; connect(sess); } };
   switch (m.type) {
@@ -674,11 +694,14 @@ function onControl(sess, m) {
     case 'error':
       if (m.retry && sess.connectedBefore && sess.retries < 8) { scheduleReconnect(sess); break; }
       setState(sess, 'fatal');
-      showOverlay(sess, { tone: 'danger', title: esc(m.message), buttons: [retry, closeButton(sess)] });
+      showOverlay(sess, {
+        tone: 'danger', title: sess.connectedBefore ? 'Connection lost' : `Could not connect to ${esc(sess.host.name)}`,
+        text: esc(sentence(m.message) || 'The server did not say why. Check the host address and port, then try again.'), buttons: [retry, closeButton(sess)],
+      });
       break;
     case 'closed':
       setState(sess, 'ended');
-      showOverlay(sess, { title: 'Session ended', buttons: [{ label: 'Reconnect', cls: 'primary', fn: () => connect(sess) }, closeButton(sess)] });
+      showOverlay(sess, { title: 'Session ended', text: 'The host closed the session.', buttons: [{ label: 'Reconnect', cls: 'primary', fn: () => connect(sess) }, closeButton(sess)] });
       break;
     default:
       break;
@@ -690,7 +713,7 @@ function scheduleReconnect(sess) {
   sess.retries += 1;
   setState(sess, 'lost');
   showOverlay(sess, {
-    title: 'Connection lost. Reconnecting…',
+    title: 'Connection lost. Reconnecting…', text: `Trying again in ${Math.round(delay / 1000)} s.`,
     buttons: [{ label: 'Retry now', cls: 'primary', fn: () => { sess.retries = 0; connect(sess); } }, closeButton(sess)],
   });
   clearTimeout(sess.timer);
@@ -699,19 +722,45 @@ function scheduleReconnect(sess) {
 
 function onClosed(sess, ev) {
   if (['fatal', 'ended', 'lost'].includes(sess.state)) return;
-  if (ev.code === 4401) {
-    setState(sess, 'fatal');
-    showOverlay(sess, { tone: 'danger', title: 'Your web session has ended' });
-    refresh();
-    return;
-  }
-  const manual = { label: 'Retry now', cls: 'primary', fn: () => { sess.retries = 0; connect(sess); } };
+  if (ev.code === 4401) return webSessionEnded(sess);
   if (!sess.connectedBefore || sess.retries >= 8) {
     setState(sess, 'fatal');
-    showOverlay(sess, { tone: 'danger', title: sess.connectedBefore ? 'Connection lost' : 'Could not connect', buttons: [manual, closeButton(sess)] });
+    explainClose(sess, ev);
     return;
   }
   scheduleReconnect(sess);
+}
+
+function webSessionEnded(sess) {
+  setState(sess, 'fatal');
+  showOverlay(sess, {
+    tone: 'danger', title: 'Your web session has ended',
+    text: 'You were signed out. This happens when Switchboard restarts or the session times out from inactivity. Sign in again to continue.',
+  });
+  refresh();
+}
+
+// The socket closed without the server saying why, so find out what we can.
+async function explainClose(sess, ev) {
+  const retry = { label: 'Retry', cls: 'primary', fn: () => { sess.retries = 0; connect(sess); } };
+  const name = esc(sess.host.name);
+  let st = null;
+  try { st = await (await fetch('/api/state', { credentials: 'same-origin' })).json(); } catch (e) { /* unreachable */ }
+  if (sess.closed) return;
+  if (st && !st.user) return webSessionEnded(sess);
+  if (!st) {
+    showOverlay(sess, {
+      tone: 'danger', title: 'Cannot reach Switchboard',
+      text: 'Your browser lost its connection to the Switchboard server. Check that the server is running and that your network or reverse proxy is up, then retry.',
+      buttons: [retry, closeButton(sess)],
+    });
+    return;
+  }
+  showOverlay(sess, {
+    tone: 'danger', title: sess.connectedBefore ? `Connection to ${name} lost` : `Could not connect to ${name}`,
+    text: `The connection closed before ${name} answered (code ${ev.code || 'none'}). Behind a reverse proxy, make sure it passes WebSocket connections through and keeps the Host header unchanged.`,
+    buttons: [retry, closeButton(sess)],
+  });
 }
 
 /* ---------- workspace tabs and layout ---------- */
@@ -838,7 +887,7 @@ function renderTabs() {
     const n = all.length;
     const label = esc(all[0].host.name) + (n > 1 ? ` <span class="faint">+${n - 1}</span>` : '');
     return `<div class="tab${t === WS.active ? ' on' : ''}">
-      <button type="button" class="tab-main" data-tab="${t.id}" role="tab" aria-selected="${t === WS.active}">${icon(protoIcon(all[0].host))}<span class="label">${label}</span><span class="dot ${t.active.state}"></span></button>
+      <button type="button" class="tab-main" data-tab="${t.id}" ${t === WS.active ? 'aria-current="true"' : ''} aria-label="${esc(all[0].host.name)}${n > 1 ? `, ${n} panes` : ''}, ${esc(t.active.state)}">${icon(protoIcon(all[0].host))}<span class="label">${label}</span><span class="dot ${t.active.state}" aria-hidden="true"></span></button>
       ${iconButton('x', `Close ${all[0].host.name}`, `data-close="${t.id}"`, 'tab-x')}
     </div>`;
   }).join('') + iconButton('plus', 'Open a host', 'data-new', 'plus');
@@ -1020,7 +1069,7 @@ function mountWorkspace(shellEl, termRoot, idRoot) {
   WS.term = termRoot;
   WS.ids = idRoot;
   termRoot.innerHTML = `
-    <div class="tabs" id="tabs" role="tablist" aria-label="Open sessions" hidden></div>
+    <nav class="tabs" id="tabs" aria-label="Open sessions" hidden></nav>
     <div class="panes" id="panes"><div class="welcome" id="empty"></div></div>
     <div class="keybar" id="keybar" aria-label="Terminal keys">
       <button type="button" data-key="esc">Esc</button><button type="button" data-key="ctrl" aria-pressed="false">Ctrl</button><button type="button" data-key="tab">Tab</button>

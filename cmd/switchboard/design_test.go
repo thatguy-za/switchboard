@@ -334,7 +334,9 @@ func TestTextContrast(t *testing.T) {
 	pairs := []pair{
 		{"--text", "--bg", 7}, {"--text", "--surface-raised", 7}, {"--text", "--surface-side", 7}, {"--text", "--surface-term", 7},
 		{"--text-2", "--bg", 4.5}, {"--text-2", "--surface-raised", 4.5}, {"--text-2", "--surface-side", 4.5},
-		{"--text-3", "--bg", 3.5}, {"--text-3", "--surface-raised", 3.5}, {"--text-3", "--surface-side", 3.5},
+		{"--text-3", "--bg", 4.5}, {"--text-3", "--surface-raised", 4.5}, {"--text-3", "--surface-side", 4.5},
+		{"--text-2", "--surface-selected", 4.5}, {"--text-2", "--surface-hover", 4.5},
+		{"--text-3", "--surface-selected", 4.5}, {"--text-3", "--surface-hover", 4.5},
 		{"--acc", "--bg", 4.5}, {"--acc", "--surface-raised", 4.5},
 		{"--acc-ink", "--acc", 4.5},
 		{"--danger", "--bg", 4.5}, {"--danger", "--surface-raised", 4.5},

@@ -11,14 +11,14 @@
 :root {
   /* ---- 1. primitives: palette ---- */
   --ink-950: #0a0b0c; --ink-900: #0d0e10; --ink-875: #0f1013; --ink-850: #111215; --ink-800: #171a1e;
-  --ink-750: #1a1c20; --ink-700: #1c1f24; --ink-600: #212429; --ink-500: #2c3037; --ink-300: #7b818b;
+  --ink-750: #1a1c20; --ink-700: #1c1f24; --ink-600: #212429; --ink-500: #2c3037; --ink-300: #9096a0;
   --ink-200: #9aa0a9; --ink-50: #e8eaed;
   --paper-0: #ffffff; --paper-25: #fdfdfc; --paper-50: #fafaf8; --paper-100: #f2f2ef; --paper-150: #ededea;
-  --paper-200: #e8e8e3; --paper-300: #e4e4df; --paper-400: #d3d3cc; --paper-600: #767b83; --paper-700: #565b64;
+  --paper-200: #e8e8e3; --paper-300: #e4e4df; --paper-400: #d3d3cc; --paper-600: #60656d; --paper-700: #565b64;
   --paper-900: #17181a;
-  --green-400: #6fc3a5; --green-700: #2a7a5d; --green-950: #08241a;
+  --green-400: #6fc3a5; --green-700: #256f55; --green-950: #08241a;
   --red-400: #f0786b; --red-600: #c4382b;
-  --amber-400: #e3b563; --amber-700: #946507;
+  --amber-400: #e3b563; --amber-700: #876000;
   --black: #000000; --white: #ffffff;
 
   /* ---- 1. primitives: scales ---- */

@@ -9,6 +9,7 @@ services:
       - "3000:3000" # exposing this to the internet? bind it to 127.0.0.1 and use an HTTPS reverse proxy: see the README
     # environment:
     #   SWITCHBOARD_SESSION_TIMEOUT: "30m"   # sign people out after this long idle
+    #   SWITCHBOARD_TRUST_PROXY: "true"      # behind a reverse proxy: count logins per visitor
     #   SWITCHBOARD_MAX_RDP: "10"            # most remote desktops open at once
     volumes:
       - switchboard-data:/data

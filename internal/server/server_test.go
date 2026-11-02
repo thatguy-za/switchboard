@@ -233,3 +233,20 @@ func TestRevealHostPassword(t *testing.T) {
 		t.Fatalf("another user's host: %d", code)
 	}
 }
+
+func TestClientIPBehindProxy(t *testing.T) {
+	r := httptest.NewRequest("GET", "/", nil)
+	r.RemoteAddr = "172.18.0.2:5555"
+	r.Header.Set("X-Forwarded-For", "6.6.6.6, 203.0.113.9")
+	if got := (&Server{}).clientIP(r); got != "172.18.0.2" {
+		t.Fatalf("untrusted: got %s", got)
+	}
+	s := &Server{cfg: Config{TrustProxy: true}}
+	if got := s.clientIP(r); got != "203.0.113.9" {
+		t.Fatalf("trusted: got %s", got)
+	}
+	r.Header.Set("X-Forwarded-For", "garbage")
+	if got := s.clientIP(r); got != "172.18.0.2" {
+		t.Fatalf("garbage header: got %s", got)
+	}
+}

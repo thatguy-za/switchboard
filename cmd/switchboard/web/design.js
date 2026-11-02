@@ -83,6 +83,8 @@ const COMPONENTS = [
       <label>Type<select><option>SSH</option><option>Desktop (RDP)</option></select></label>
       <label>Private key<textarea rows="3" class="mono">-----BEGIN OPENSSH PRIVATE KEY-----</textarea></label>
       <label>Files<input type="file"></label><p class="err">That password is not long enough.</p></div>` },
+  { id: 'skip-link', name: 'Skip link', description: 'The first tab stop. Hidden until it has focus, then jumps past the sidebar to the page.',
+    render: () => `<div class="stage"><a class="skip show" href="#c-skip-link">Skip to main content</a></div>` },
   { id: 'password-field', name: 'Password field', description: 'A password input with an eye button that shows what is typed.',
     render: () => `<div class="stage column"><label>Password${passwordField({ name: 'pw-demo', placeholder: 'Saved. Leave blank to keep it.' })}</label></div>` },
   { id: 'check', name: 'Checkbox', description: 'For choices that apply on save. A hint sits under the label.',
@@ -114,11 +116,12 @@ const COMPONENTS = [
     render: () => `<div class="stage"><div class="toast">${icon('circle-check')}<span>Host saved</span></div><div class="toast err">${icon('alert-triangle')}<span>Copy failed</span></div></div>` },
   { id: 'popover', name: 'Popover', description: 'A small panel that floats over a pane: the clipboard and files.',
     render: () => `<div class="stage tall"><div class="popover"><div class="section-head"><h3>Clipboard</h3>${iconButton('x', 'Close')}</div>
-      <p class="small muted">Text copied on the remote desktop shows up here.</p><textarea rows="3"></textarea>
+      <p class="small muted">Text copied on the remote desktop shows up here.</p><textarea rows="3" aria-label="Clipboard text"></textarea>
       <div class="actions">${button('Send to remote', { kind: 'primary sm' })}${button('Copy', { kind: 'sm', icon: 'copy' })}</div></div></div>` },
   { id: 'overlay-box', name: 'Pane overlay', description: 'Says what a pane is doing, or asks a question before it continues.',
-    render: () => `<div class="stage flush"><div class="tover"><div class="tbox danger"><div class="title">${icon('alert-triangle')}The host key for pi-hole has changed</div>${iconButton('x', 'Close pane', '', 'sm')}
-      <div class="text">Someone may be intercepting this connection, or the server was reinstalled.<span class="fp-label">Saved</span><code class="fp">SHA256:Z7JhYC7mEL0hweX4QShWW8HB4MXMQ26IyP6Ql9x52a8</code></div>
+    render: () => `<div class="stage flush"><div class="tover"><div class="tbox danger">${iconButton('x', 'Close pane', '', 'sm')}
+      <div class="tb-head"><span class="tb-icon">${icon('alert-triangle')}</span><div class="tb-copy"><div class="title">The host key for pi-hole has changed</div>
+        <div class="text">Someone may be intercepting this connection, or the server was reinstalled.<span class="fp-label">Saved</span><code class="fp">SHA256:Z7JhYC7mEL0hweX4QShWW8HB4MXMQ26IyP6Ql9x52a8</code></div></div></div>
       <div class="actions">${button('Disconnect', { kind: 'primary' })}${button('Accept new key', { kind: 'danger' })}</div></div></div></div>` },
   { id: 'tabs', name: 'Tabs', description: 'Open sessions. The active tab joins the terminal beneath it.',
     render: () => `<div class="stage flush"><div class="tabs"><div class="tab on"><button class="tab-main" type="button">${icon('terminal-2')}<span class="label">pi-hole</span><span class="dot live"></span></button>${iconButton('x', 'Close', '', 'tab-x')}</div>
@@ -127,7 +130,7 @@ const COMPONENTS = [
     render: () => `<div class="stage column"><button class="nav" type="button">${icon('key')}Identities</button><button class="nav" type="button" aria-current="page">${icon('settings')}Settings<span class="badge"></span></button>
       <nav class="subnav"><button type="button" aria-current="page">${icon('user')}Account</button><button type="button">${icon('shield-lock')}Security</button></nav></div>` },
   { id: 'tree-row', name: 'Host row', description: 'A host or folder in the sidebar. Edit appears on hover, and always on touch screens.',
-    render: () => `<div class="stage column"><div class="row folder" aria-expanded="true">${icon('chevron-down', 'chev sm')}<span class="name">Home lab</span></div>
+    render: () => `<div class="stage column"><div class="row folder"><button type="button" class="row-main" aria-expanded="true">${icon('chevron-down', 'chev sm')}<span class="name">Home lab</span></button></div>
       ${hostRow(hostSample, { depth: 1, live: true })}${hostRow(rdpSample, { depth: 1 })}</div>` },
   { id: 'panel', name: 'Panel', description: 'A bordered container for related rows.',
     render: () => `<div class="stage column">${panel(settingRow('Password', 'Changing it keeps your vault readable.', button('Change password')) + settingRow('Theme', 'Follows your system.', button('Dark')))}</div>` },

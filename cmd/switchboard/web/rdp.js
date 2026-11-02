@@ -103,6 +103,11 @@ function rdpOpen(sess) {
   sess.opened = true;
   const live = () => sess.client && sess.state === 'live';
 
+  // Every key goes to the remote desktop, so Shift+Escape is the way out for keyboard users.
+  sess.sink.setAttribute('aria-label', `Remote desktop for ${sess.host.name}. Press Shift+Escape to leave it.`);
+  sess.sink.addEventListener('keydown', ev => {
+    if (ev.key === 'Escape' && ev.shiftKey) { ev.stopImmediatePropagation(); ev.preventDefault(); sess.head.querySelector('button').focus(); }
+  });
   const kbd = new Guacamole.Keyboard(sess.sink);
   sess.kbd = kbd;
   kbd.onkeydown = keysym => {
@@ -243,17 +248,18 @@ function rdpLost(sess, client, status) {
   const code = status ? status.code : 0;
   const message = status && status.message && !/^\d+$/.test(status.message) ? status.message : '';
   const retry = { label: 'Retry', cls: 'primary', fn: () => { sess.retries = 0; connect(sess); } };
-  if (code === WEB_SESSION_ENDED) {
-    setState(sess, 'fatal');
-    showOverlay(sess, { tone: 'danger', title: 'Your web session has ended' });
-    refresh();
-    return;
-  }
+  if (code === WEB_SESSION_ENDED) return webSessionEnded(sess);
   const authProblem = code >= 768 && code < 800;
   if (sess.connectedBefore && !authProblem && sess.retries < 8) { scheduleReconnect(sess); return; }
   setState(sess, 'fatal');
-  const title = message || (sess.connectedBefore ? 'Connection lost' : 'Could not connect');
-  showOverlay(sess, { tone: 'danger', title: esc(title), buttons: [retry, closeButton(sess)] });
+  const name = esc(sess.host.name);
+  const why = authProblem
+    ? 'The remote desktop rejected the username or password. Edit the host and check them.'
+    : 'The remote desktop did not answer. Check the address and port, that Remote Desktop is turned on for that PC, and that nothing is blocking the connection.';
+  showOverlay(sess, {
+    tone: 'danger', title: sess.connectedBefore ? `Connection to ${name} lost` : `Could not connect to ${name}`,
+    text: esc(message || why) + (message ? ` ${esc(why)}` : ''), buttons: [retry, closeButton(sess)],
+  });
 }
 
 function rdpTeardown(sess) {

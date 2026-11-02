@@ -65,6 +65,13 @@ Each terminal tab can be split right or down into up to six panes, each its own 
 
 xterm.js 5.5.0, its fit addon and guacamole-common-js 1.5.0 (Apache-2.0, license kept beside it) are vendored in `cmd/switchboard/web/vendor`, so the page loads nothing from a CDN.
 
+## Accessibility
+
+Switchboard aims for WCAG 2.2 level AA: every control works from the keyboard, text meets contrast
+minimums in both themes, and dialogs and prompts are announced by screen readers. Inside a terminal or
+remote desktop every key goes to the remote side, so press **Shift+Escape** to move focus back to the
+pane's buttons. `tests/ui/a11y.sh` runs an automated axe-core check of every screen.
+
 ## Tailscale
 
 Switchboard can join your tailnet itself, with nothing extra to run. Open **Settings → Server → Tailscale**
@@ -132,6 +139,7 @@ Everything has a working default. These are optional:
 |---|---|---|
 | `SWITCHBOARD_PORT` | `3000` | listen port inside the container |
 | `SWITCHBOARD_SESSION_TIMEOUT` | `30m` | idle timeout |
+| `SWITCHBOARD_TRUST_PROXY` | off | set to `true` behind a reverse proxy, so login rate limits count each visitor, not the proxy |
 | `SWITCHBOARD_MAX_RDP` | `10` | most remote desktops open at once |
 | `SWITCHBOARD_KEYS_DIR` | `/data/keys` | where the master key lives |
 | `SWITCHBOARD_TRANSFER_DIR` | `/tmp/switchboard-transfer` | scratch space for desktop file transfer |

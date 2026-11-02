@@ -196,6 +196,23 @@ const dlg = () => page.locator('dialog[open]');
     await page.waitForTimeout(300);
   });
 
+  await step('connection failure explains itself', async () => {
+    await page.click('#add-host');
+    const d = dlg();
+    await d.locator('input[name=name]').fill('unreachable');
+    await d.locator('input[name=address]').fill('sbui-ssh');
+    await d.locator('input[name=port]').fill('1');
+    await d.locator('input[name=username]').fill('tester');
+    await d.locator('input[name=password]').fill('testpass-123');
+    await d.locator('button.primary').click();
+    await page.waitForSelector('dialog[open]', { state: 'detached' });
+    await page.click('.row.host:has-text("unreachable") .row-main');
+    await page.waitForSelector('.tbox.danger .text:visible', { timeout: 20000 });
+    const text = (await page.locator('.tbox.danger .text:visible').first().innerText()).trim();
+    if (text.length < 20) throw new Error('error popup has no description: ' + text);
+    await snap('26a-connect-error');
+    await page.locator('.tbox [data-close]:visible').click();
+  });
   await step('light theme', async () => {
     await nav('appearance');
     await page.click('.seg button[data-theme=light]');

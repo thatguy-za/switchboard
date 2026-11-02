@@ -83,6 +83,7 @@ func main() {
 		Guacd:          guacd,
 		TransferDir:    env("SWITCHBOARD_TRANSFER_DIR", "/tmp/switchboard-transfer"),
 		MaxRDP:         maxRDP,
+		TrustProxy:     env("SWITCHBOARD_TRUST_PROXY", "") == "true",
 	}, web)
 	if err != nil {
 		log.Fatal(err)

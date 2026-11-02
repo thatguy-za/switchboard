@@ -31,6 +31,11 @@ button.block { width: 100%; height: var(--h-control-lg); }
 button.link { height: auto; padding: 0; border: 0; background: none; color: var(--acc); }
 button.link:hover { text-decoration: underline; background: none; }
 
+/* @component skip-link */
+.skip { position: absolute; left: var(--s-5); top: var(--s-5); z-index: var(--z-toast); padding: var(--s-4) var(--s-6); border-radius: var(--r-sm); background: var(--acc); color: var(--acc-ink); font-weight: var(--fw-medium); text-decoration: none; transform: translateY(-300%); }
+.skip:focus, .skip.show { transform: none; }
+.skip.show { position: static; display: inline-block; }
+
 /* @component icon-button */
 button.icon { width: var(--h-icon-btn); height: var(--h-icon-btn); padding: 0; border-color: transparent; background: transparent; color: var(--text-3); }
 button.icon:hover { background: var(--surface-selected); color: var(--text); }
@@ -170,11 +175,14 @@ dialog.palette { width: min(var(--w-palette), calc(100% - var(--s-12))); margin:
 .tover { position: absolute; inset: 0; z-index: var(--z-overlay); display: flex; align-items: center; justify-content: center; padding: var(--s-10); background: color-mix(in srgb, var(--surface-term) 78%, transparent); animation: fade var(--dur-base) ease; }
 .tbox { position: relative; width: min(var(--w-dialog), 100%); display: grid; gap: var(--s-5); padding: var(--s-9) var(--s-10); background: var(--surface-raised); border: 1px solid var(--line-strong); border-radius: var(--r-lg); box-shadow: var(--shadow-lg); }
 .tbox.danger { border-color: color-mix(in srgb, var(--danger) 50%, var(--line-strong)); }
-.tbox .title { padding-right: var(--s-12); font-size: var(--fs-md); font-weight: var(--fw-semibold); display: flex; align-items: center; gap: var(--s-4); }
-.tbox.danger .title .ic { color: var(--danger); }
+.tbox .tb-head { display: flex; align-items: flex-start; gap: var(--s-6); }
+.tbox .tb-icon { flex: none; display: grid; place-items: center; width: var(--h-control-lg); height: var(--h-control-lg); border-radius: 50%; background: var(--danger-soft); color: var(--danger); }
+.tbox .tb-copy { display: grid; gap: var(--s-3); min-width: 0; padding-right: var(--s-10); }
+.tbox .title { font-size: var(--fs-md); font-weight: var(--fw-semibold); line-height: var(--lh-tight); }
 .tbox > button.icon { position: absolute; top: var(--s-4); right: var(--s-4); }
 .tbox .text { color: var(--text-2); overflow-wrap: anywhere; }
-.tbox .actions { display: flex; gap: var(--s-4); margin-top: var(--s-2); }
+.tbox .actions { display: flex; gap: var(--s-4); margin-top: var(--s-3); }
+.tbox .tb-head + .actions:empty { display: none; }
 .tbox .fp-label { display: block; margin-top: var(--s-5); font-size: var(--fs-2xs); font-weight: var(--fw-medium); color: var(--text-3); }
 .tbox code.fp { display: block; margin-top: var(--s-2); padding: var(--s-4) var(--s-5); background: var(--surface-field); border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--text); word-break: break-all; font: var(--fs-xs) / var(--lh-base) var(--font-mono); }
 
@@ -204,13 +212,18 @@ dialog.palette { width: min(var(--w-palette), calc(100% - var(--s-12))); margin:
 .row { display: flex; align-items: center; gap: var(--s-4); height: var(--h-row); padding: 0 var(--s-3) 0 var(--s-4); border-radius: var(--r-sm); color: var(--text-2); cursor: pointer; user-select: none; transition: background var(--dur-base) var(--ease-out); }
 .row:hover { background: var(--surface-hover); }
 .row.on { background: var(--surface-selected); color: var(--text); }
+.row-main { flex: 1; min-width: 0; align-self: stretch; display: flex; align-items: center; gap: var(--s-4); padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; border-radius: var(--r-sm); }
+.row-main:hover { background: none; }
+.row-main:active { transform: none; }
+button.row { width: 100%; border: 0; background: none; font: inherit; text-align: left; }
+button.row:hover { background: var(--surface-hover); }
 .row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row .ic { color: var(--text-3); }
 .row.host:hover .ic, .row.on .ic { color: var(--text-2); }
 .row.folder { color: var(--text-3); font-size: var(--fs-xs); height: var(--h-folder); margin-top: var(--s-3); }
 .row.folder .name { font-weight: var(--fw-medium); }
 .row.folder .chev { transition: transform var(--dur-base) var(--ease-out); }
-.row.folder[aria-expanded=false] .chev { transform: rotate(-90deg); }
+.row.folder [aria-expanded=false] .chev { transform: rotate(-90deg); }
 .row .kebab { opacity: 0; }
 .row:hover .kebab, .row:focus-within .kebab, .row:focus-visible .kebab { opacity: 1; }
 @media (hover: none) { .row .kebab { opacity: 1; } }
