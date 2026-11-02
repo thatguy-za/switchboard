@@ -343,8 +343,8 @@ func TestIdentities(t *testing.T) {
 	u := newClient(t, ts.URL)
 	u.do("POST", "/api/setup", credentials{"owner", "a long enough password"})
 
-	code, gen := u.do("POST", "/api/identities/generate", map[string]string{"name": "laptop", "comment": "owner@switchboard", "kind": "ed25519"})
-	if code != 200 || !strings.HasPrefix(gen["public_key"].(string), "ssh-ed25519 ") || !strings.HasSuffix(gen["public_key"].(string), " owner@switchboard") {
+	code, gen := u.do("POST", "/api/identities/generate", map[string]string{"name": "laptop", "comment": "owner@webterm", "kind": "ed25519"})
+	if code != 200 || !strings.HasPrefix(gen["public_key"].(string), "ssh-ed25519 ") || !strings.HasSuffix(gen["public_key"].(string), " owner@webterm") {
 		t.Fatalf("generate: %d %v", code, gen)
 	}
 	if _, leaked := gen["private_blob"]; leaked {

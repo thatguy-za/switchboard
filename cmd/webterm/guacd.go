@@ -31,7 +31,7 @@ func findGuacd() string {
 func startGuacd(ctx context.Context, host, port string, wg *sync.WaitGroup) {
 	bin := findGuacd()
 	if bin == "" {
-		log.Print("guacd not found: remote desktops need it, so set SWITCHBOARD_GUACD to one that is running")
+		log.Print("guacd not found: remote desktops need it, so set WEBTERM_GUACD to one that is running")
 		return
 	}
 	wg.Add(1)

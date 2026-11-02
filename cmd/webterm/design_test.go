@@ -337,8 +337,8 @@ func TestTextContrast(t *testing.T) {
 		{"--text-3", "--bg", 4.5}, {"--text-3", "--surface-raised", 4.5}, {"--text-3", "--surface-side", 4.5},
 		{"--text-2", "--surface-selected", 4.5}, {"--text-2", "--surface-hover", 4.5},
 		{"--text-3", "--surface-selected", 4.5}, {"--text-3", "--surface-hover", 4.5},
-		{"--acc", "--bg", 4.5}, {"--acc", "--surface-raised", 4.5},
-		{"--acc-ink", "--acc", 4.5},
+		{"--acc-text", "--bg", 4.5}, {"--acc-text", "--surface-raised", 4.5},
+		{"--acc-ink", "--acc", 4.5}, {"--acc-ink", "--acc-hover", 4.5}, {"--on-danger", "--danger", 4.5},
 		{"--danger", "--bg", 4.5}, {"--danger", "--surface-raised", 4.5},
 		{"--warn", "--bg", 4.5}, {"--warn", "--surface-raised", 4.5},
 	}
@@ -370,11 +370,12 @@ func TestBrowserChromeColoursMatchTheTokens(t *testing.T) {
 			t.Errorf("index.html theme-color for %s should be %s (the --bg token), got %v", want.scheme, want.hex, m)
 		}
 	}
+	brand := themeTokens(t, false)["--brand-ink"]
 	manifest := read(t, "manifest.webmanifest")
 	for _, key := range []string{"background_color", "theme_color"} {
 		m := regexp.MustCompile(`"` + key + `":\s*"(#[0-9a-fA-F]{6})"`).FindStringSubmatch(manifest)
-		if m == nil || !strings.EqualFold(m[1], dark) {
-			t.Errorf("manifest %s should be %s (the dark --bg token), got %v", key, dark, m)
+		if m == nil || !strings.EqualFold(m[1], brand) {
+			t.Errorf("manifest %s should be %s (the --brand-ink token), got %v", key, brand, m)
 		}
 	}
 }

@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -248,5 +250,25 @@ func TestClientIPBehindProxy(t *testing.T) {
 	r.Header.Set("X-Forwarded-For", "garbage")
 	if got := s.clientIP(r); got != "172.18.0.2" {
 		t.Fatalf("garbage header: got %s", got)
+	}
+}
+
+func TestDatabaseRenamedFromSwitchboard(t *testing.T) {
+	dir := t.TempDir()
+	for _, n := range []string{"switchboard.db", "switchboard.db-wal"} {
+		os.WriteFile(filepath.Join(dir, n), []byte(n), 0o600)
+	}
+	migrateDatabaseName(dir)
+	if b, err := os.ReadFile(filepath.Join(dir, "webterm.db")); err != nil || string(b) != "switchboard.db" {
+		t.Fatalf("database not renamed: %q %v", b, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "webterm.db-wal")); err != nil {
+		t.Fatal("wal not renamed")
+	}
+	// A database that already has the new name is never replaced.
+	os.WriteFile(filepath.Join(dir, "switchboard.db"), []byte("old"), 0o600)
+	migrateDatabaseName(dir)
+	if b, _ := os.ReadFile(filepath.Join(dir, "webterm.db")); string(b) != "switchboard.db" {
+		t.Fatalf("existing database replaced: %q", b)
 	}
 }

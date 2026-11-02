@@ -8,20 +8,21 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/thatguy-za/switchboard/internal/crypto"
-	"github.com/thatguy-za/switchboard/internal/store"
-	"github.com/thatguy-za/switchboard/internal/tailnet"
+	"github.com/thatguy-za/webterm/internal/crypto"
+	"github.com/thatguy-za/webterm/internal/store"
+	"github.com/thatguy-za/webterm/internal/tailnet"
 )
 
 const (
-	cookieSession = "sb_session"
-	cookiePending = "sb_pending"
+	cookieSession = "wt_session"
+	cookiePending = "wt_pending"
 	maxFailures   = 5
 	lockDuration  = 15 * time.Minute
 )
@@ -66,7 +67,8 @@ func New(cfg Config, web fs.FS) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	db, err := store.Open(filepath.Join(cfg.DataDir, "switchboard.db"))
+	migrateDatabaseName(cfg.DataDir)
+	db, err := store.Open(filepath.Join(cfg.DataDir, "webterm.db"))
 	if err != nil {
 		return nil, err
 	}
@@ -371,3 +373,17 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 }
 
 var errBadInput = errors.New("bad input")
+
+// migrateDatabaseName renames the database from before the product was called
+// WebTerm, so an existing data volume keeps working.
+func migrateDatabaseName(dir string) {
+	if _, err := os.Stat(filepath.Join(dir, "webterm.db")); err == nil {
+		return
+	}
+	if _, err := os.Stat(filepath.Join(dir, "switchboard.db")); err != nil {
+		return
+	}
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		os.Rename(filepath.Join(dir, "switchboard.db"+suffix), filepath.Join(dir, "webterm.db"+suffix))
+	}
+}

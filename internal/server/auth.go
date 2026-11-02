@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/thatguy-za/switchboard/internal/crypto"
-	"github.com/thatguy-za/switchboard/internal/store"
+	"github.com/thatguy-za/webterm/internal/crypto"
+	"github.com/thatguy-za/webterm/internal/store"
 )
 
 func validCredentials(username, password string) string {

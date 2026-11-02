@@ -1,13 +1,19 @@
-# Switchboard
+<p align="center"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="cmd/webterm/web/logo-dark.svg">
+  <img src="cmd/webterm/web/logo-light.svg" alt="webterm" width="220">
+</picture></p>
 
-A self-hosted SSH and RDP client for your browser. One Docker container, one volume, one port.
+<h3 align="center">WebTerm: the self-hosted web terminal</h3>
+
+A browser-based SSH and RDP client that runs in Docker, with one-click SSH identities and per-user encrypted vaults.
+One container, one volume, one port.
 
 Open terminals and remote desktops in tabs and split panes, from any device, with your passwords and keys
 kept encrypted on a server you control.
 
-![Switchboard: a terminal on a saved host, with the sidebar, search and a bar of saved commands](docs/screenshots/workspace.png)
+![WebTerm: a terminal on a saved host, with the sidebar, search and a bar of saved commands](docs/screenshots/workspace.png)
 
-> **This project is vibe coded.** Switchboard was written almost entirely by an AI (Claude, through Claude
+> **This project is vibe coded.** WebTerm was written almost entirely by an AI (Claude, through Claude
 > Code), with me directing, testing and reviewing it. I'm telling you up front because this software holds
 > your SSH keys and server passwords, and you should decide how much to trust it with that. The
 > [security section](#how-security-works) says exactly what it does, and what it doesn't.
@@ -34,7 +40,7 @@ docker compose up -d
 ```
 
 Open `http://<server-ip>:3000`. The first visit creates the owner account. Everything is stored in the
-`switchboard-data` volume. For HTTPS (recommended, and needed for installing it as an app), put a reverse
+`webterm-data` volume. For HTTPS (recommended, and needed for installing it as an app), put a reverse
 proxy in front: see [HTTPS and reverse proxies](docs/guide.md#https-and-reverse-proxies).
 
 ## What it does
@@ -52,7 +58,7 @@ The details are in the [guide](docs/guide.md).
 
 ## How security works
 
-This is what Switchboard does to protect what you store in it.
+This is what WebTerm does to protect what you store in it.
 
 **Your secrets are encrypted twice.**
 - Every user has a random vault key. Passwords and private keys are encrypted with it (XChaCha20-Poly1305),
@@ -75,7 +81,7 @@ This is what Switchboard does to protect what you store in it.
 
 **Connections.**
 - SSH host keys are trusted on first use. If a key later changes, the connection stops with a warning until
-  you accept it. Switchboard never skips host key checks.
+  you accept it. WebTerm never skips host key checks.
 - The RDP gateway (`guacd`) listens on the container's loopback only and runs as an unprivileged user.
 - Each user's Tailscale connection is their own, and is used only for their own hosts.
 
@@ -105,16 +111,17 @@ Everything has a working default. These are optional:
 
 | Variable | Default | |
 |---|---|---|
-| `SWITCHBOARD_PORT` | `3000` | listen port inside the container |
-| `SWITCHBOARD_SESSION_TIMEOUT` | `30m` | idle timeout |
-| `SWITCHBOARD_TRUST_PROXY` | off | set to `true` behind a reverse proxy, so login rate limits count each visitor, not the proxy |
-| `SWITCHBOARD_MAX_RDP` | `10` | most remote desktops open at once |
-| `SWITCHBOARD_KEYS_DIR` | `/data/keys` | where the master key lives |
-| `SWITCHBOARD_TRANSFER_DIR` | `/tmp/switchboard-transfer` | scratch space for desktop file transfer |
-| `SWITCHBOARD_GUACD` | built in | `host:port` of a guacd elsewhere, instead of the bundled one |
+| `WEBTERM_PORT` | `3000` | listen port inside the container |
+| `WEBTERM_SESSION_TIMEOUT` | `30m` | idle timeout |
+| `WEBTERM_TRUST_PROXY` | off | set to `true` behind a reverse proxy, so login rate limits count each visitor, not the proxy |
+| `WEBTERM_MAX_RDP` | `10` | most remote desktops open at once |
+| `WEBTERM_KEYS_DIR` | `/data/keys` | where the master key lives |
+| `WEBTERM_TRANSFER_DIR` | `/tmp/webterm-transfer` | scratch space for desktop file transfer |
+| `WEBTERM_GUACD` | built in | `host:port` of a guacd elsewhere, instead of the bundled one |
 
 ## More
 
+- [Upgrading from Switchboard](docs/guide.md#upgrading-from-switchboard): WebTerm used to be called Switchboard
 - [Guide](docs/guide.md): SSH keys, remote desktops, saved commands, Tailscale, HTTPS, installing as an app, the master key
 - [Design system](docs/design-system.md), and `/design.html` on a running instance for the style guide
-- Multi-arch (amd64, arm64) images are published to `ghcr.io/thatguy-za/switchboard`: `edge` for every push to `main`, and `latest` plus version tags for every `v*` release
+- Multi-arch (amd64, arm64) images are published to `ghcr.io/thatguy-za/webterm`: `edge` for every push to `main`, and `latest` plus version tags for every `v*` release

@@ -11,7 +11,7 @@ h1, h2, h3, p { margin: 0; }
 h1 { font-size: var(--fs-2xl); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-tight); line-height: var(--lh-tight); }
 h2 { font-size: var(--fs-xl); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-snug); }
 h3 { font-size: var(--fs-sm); font-weight: var(--fw-semibold); }
-a { color: var(--acc); text-decoration: none; }
+a { color: var(--acc-text); text-decoration: none; }
 a:hover { text-decoration: underline; }
 code, .mono { font-family: var(--font-mono); font-size: var(--fs-xs); }
 [hidden] { display: none !important; }

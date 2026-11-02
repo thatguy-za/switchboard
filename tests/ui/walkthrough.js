@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 // Walks through every screen in headless Chromium and saves screenshots. Run it with tests/ui/run.sh.
 const OUT = process.env.OUT || '/work/out';
-const BASE = process.env.BASE || 'http://switchboard:3000';
+const BASE = process.env.BASE || 'http://webterm:3000';
 const results = [];
 let page;
 const snap = async name => { await page.waitForTimeout(450); await page.screenshot({ path: `${OUT}/${name}.png` }); };
@@ -83,9 +83,9 @@ const dlg = () => page.locator('dialog[open]');
     await trust();
   });
   await step('terminal works', async () => {
-    await page.keyboard.type('echo hello from switchboard; uname -m');
+    await page.keyboard.type('echo hello from webterm; uname -m');
     await page.keyboard.press('Enter');
-    await page.waitForFunction(() => document.querySelector('.xterm-rows') && document.querySelector('.xterm-rows').innerText.includes('hello from switchboard'), null, { timeout: 8000 });
+    await page.waitForFunction(() => document.querySelector('.xterm-rows') && document.querySelector('.xterm-rows').innerText.includes('hello from webterm'), null, { timeout: 8000 });
     await snap('07-terminal');
   });
   await step('terminal fits its pane', async () => {

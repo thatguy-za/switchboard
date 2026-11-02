@@ -15,9 +15,9 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/thatguy-za/switchboard/internal/crypto"
-	"github.com/thatguy-za/switchboard/internal/guac"
-	"github.com/thatguy-za/switchboard/internal/store"
+	"github.com/thatguy-za/webterm/internal/crypto"
+	"github.com/thatguy-za/webterm/internal/guac"
+	"github.com/thatguy-za/webterm/internal/store"
 )
 
 // What a browser may send to guacd once connected. Everything else, including
@@ -286,7 +286,7 @@ func (s *Server) rdpParams(h *store.Host, o rdpOptions, a *authed) (map[string]s
 		"color-depth":   strconv.Itoa(o.Depth), "enable-wallpaper": strconv.FormatBool(o.Wallpaper),
 		"enable-font-smoothing": strconv.FormatBool(o.Smoothing),
 		"disable-audio":         strconv.FormatBool(!o.Audio), "enable-audio-input": "false",
-		"client-name": "Switchboard", "server-layout": o.Layout,
+		"client-name": "WebTerm", "server-layout": o.Layout,
 		"enable-drive": "false",
 		"disable-copy": strconv.FormatBool(!o.Clipboard), "disable-paste": strconv.FormatBool(!o.Clipboard),
 	}
@@ -304,7 +304,7 @@ func (s *Server) rdpParams(h *store.Host, o rdpOptions, a *authed) (map[string]s
 		dir := filepath.Join(s.cfg.TransferDir, newID())
 		// guacd runs as a different user, so the folder must be open to it.
 		if os.Mkdir(dir, 0o777) == nil && os.Chmod(dir, 0o777) == nil {
-			p["enable-drive"], p["drive-path"], p["create-drive-path"], p["drive-name"] = "true", dir, "true", "Switchboard"
+			p["enable-drive"], p["drive-path"], p["create-drive-path"], p["drive-name"] = "true", dir, "true", "WebTerm"
 			cleanup = func() { os.RemoveAll(dir) }
 		}
 	}

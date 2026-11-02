@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thatguy-za/switchboard/internal/store"
+	"github.com/thatguy-za/webterm/internal/store"
 )
 
 func commandList(t *testing.T, u *client) []map[string]any {

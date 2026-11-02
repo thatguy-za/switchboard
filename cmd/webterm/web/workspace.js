@@ -15,12 +15,12 @@ const MAX_PANES = 6;
 const themeFor = name => xtermTheme(name);
 
 function termPrefs() {
-  try { return Object.assign({ font: DEFAULT_FONT, size: 14 }, JSON.parse(localStorage.getItem('sb_term') || '{}')); }
+  try { return Object.assign({ font: DEFAULT_FONT, size: 14 }, JSON.parse(localStorage.getItem('wt_term') || '{}')); }
   catch (e) { return { font: DEFAULT_FONT, size: 14 }; }
 }
 
 function saveTermPrefs(p) {
-  try { localStorage.setItem('sb_term', JSON.stringify(p)); } catch (e) { /* storage unavailable */ }
+  try { localStorage.setItem('wt_term', JSON.stringify(p)); } catch (e) { /* storage unavailable */ }
   for (const sess of allSessions().filter(x => x.kind !== 'rdp')) {
     sess.term.options.fontFamily = p.font;
     sess.term.options.fontSize = p.size;
@@ -41,18 +41,18 @@ function readSet(key) {
 function writeList(key, list) {
   try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) { /* ignore */ }
 }
-const collapsed = readSet('sb_collapsed');
-const saveCollapsed = () => writeList('sb_collapsed', [...collapsed]);
+const collapsed = readSet('wt_collapsed');
+const saveCollapsed = () => writeList('wt_collapsed', [...collapsed]);
 
 function recentHosts() {
   let ids = [];
-  try { ids = JSON.parse(localStorage.getItem('sb_recent') || '[]'); } catch (e) { /* ignore */ }
+  try { ids = JSON.parse(localStorage.getItem('wt_recent') || '[]'); } catch (e) { /* ignore */ }
   return ids.map(id => WS.hosts.find(h => h.id === id)).filter(Boolean).slice(0, 5);
 }
 function noteRecent(host) {
   let ids = [];
-  try { ids = JSON.parse(localStorage.getItem('sb_recent') || '[]'); } catch (e) { /* ignore */ }
-  writeList('sb_recent', [host.id, ...ids.filter(x => x !== host.id)].slice(0, 12));
+  try { ids = JSON.parse(localStorage.getItem('wt_recent') || '[]'); } catch (e) { /* ignore */ }
+  writeList('wt_recent', [host.id, ...ids.filter(x => x !== host.id)].slice(0, 12));
 }
 
 const byName = (a, b) => a.name.localeCompare(b.name);
@@ -160,14 +160,14 @@ function renderWelcome() {
   const box = WS.term && document.getElementById('empty');
   if (!box) return;
   if (!WS.hosts.length) {
-    box.innerHTML = `<div class="welcome-in">${icon('logo', 'mark')}
+    box.innerHTML = `<div class="welcome-in">${logo()}
       <div><h1>Add your first host</h1><p class="sub muted">Connect to any server over SSH or RDP, from any browser. Your passwords and keys stay encrypted in your vault.</p></div>
       <button class="primary" id="welcome-add">${icon('plus')}New host</button></div>`;
     document.getElementById('welcome-add').addEventListener('click', () => hostDialog(null));
     return;
   }
   const recent = recentHosts();
-  box.innerHTML = `<div class="welcome-in">${icon('logo', 'mark')}
+  box.innerHTML = `<div class="welcome-in">${logo()}
     <div><h1>${recent.length ? 'Pick up where you left off' : 'Open a host'}</h1>
       <p class="sub muted">${recent.length ? 'Your recent hosts.' : 'Choose one from the sidebar.'}</p></div>
     ${recent.length ? `<div class="recent">${recent.map(h => `<button type="button" class="row host" data-open="${esc(h.id)}">${icon(protoIcon(h))}<span class="name">${esc(h.name)}</span>
@@ -220,7 +220,7 @@ function hostDialog(host, opts = {}) {
   const depthOpts = RDP_DEPTHS.map(([v, t]) => `<option value="${v}"${v === rdpOpts.depth ? ' selected' : ''}>${t}</option>`).join('');
   const layoutOpts = RDP_LAYOUTS.map(([v, t]) => `<option value="${v}"${v === rdpOpts.layout ? ' selected' : ''}>${t}</option>`).join('');
   const themeOpts = ['auto', 'dark', 'light', 'contrast']
-    .map(t => `<option value="${t}"${t === h.theme ? ' selected' : ''}>${t[0].toUpperCase() + t.slice(1)}</option>`).join('');
+    .map(t => `<option value="${t}"${t === h.theme ? ' selected' : ''}>${t === 'auto' ? 'Default (dark)' : t[0].toUpperCase() + t.slice(1)}</option>`).join('');
   const d = dialog(host ? 'Edit host' : 'New host', `
     <div class="inline">
       <label>Name<input type="text" name="name" value="${esc(h.name)}" required maxlength="80"></label>
@@ -755,8 +755,8 @@ async function explainClose(sess, ev) {
   if (st && !st.user) return webSessionEnded();
   if (!st) {
     showOverlay(sess, {
-      tone: 'danger', title: 'Cannot reach Switchboard',
-      text: 'Your browser lost its connection to the Switchboard server. Check that the server is running and that your network or reverse proxy is up, then retry.',
+      tone: 'danger', title: 'Cannot reach WebTerm',
+      text: 'Your browser lost its connection to the WebTerm server. Check that the server is running and that your network or reverse proxy is up, then retry.',
       buttons: [retry, closeButton(sess)],
     });
     return;
@@ -903,7 +903,7 @@ function renderTabs() {
    A bar of buttons under SSH terminals. Click inserts the command, Shift-click runs it. The text
    is stored encrypted for the signed-in user; {{host}} and {{user}} are filled in from the host. */
 
-const CMDBAR_KEY = 'sb_cmdbar_hidden';
+const CMDBAR_KEY = 'wt_cmdbar_hidden';
 function cmdBarHidden() { try { return localStorage.getItem(CMDBAR_KEY) === '1'; } catch (e) { return false; } }
 function setCmdBarHidden(hidden) {
   try { localStorage.setItem(CMDBAR_KEY, hidden ? '1' : '0'); } catch (e) { /* not saved */ }
@@ -1053,7 +1053,7 @@ function renderIdentities() {
 function identityDefaults() {
   const d = new Date();
   const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  return { name: `Key ${ym}`, comment: `${state.user.username}@switchboard-${ym}` };
+  return { name: `Key ${ym}`, comment: `${state.user.username}@webterm-${ym}` };
 }
 
 function newIdentityDialog() {

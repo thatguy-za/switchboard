@@ -10,6 +10,9 @@ const $q = (root, sel) => root.querySelector(sel);
 const icon = (name, cls = '') => `<svg class="ic ${cls}" aria-hidden="true"><use href="/icons.svg#i-${name}"/></svg>`;
 const iconButton = (name, label, attrs = '', cls = '') =>
   `<button type="button" class="icon ${cls}" aria-label="${esc(label)}" title="${esc(label)}" ${attrs}>${icon(name)}</button>`;
+// The wordmark: lowercase text and a block cursor (DESIGN.md). It only blinks on the sign-in and setup pages.
+const logo = ({ blink = false } = {}) =>
+  `<span class="logo${blink ? ' blink' : ''}" role="img" aria-label="webterm"><span aria-hidden="true">webterm</span><i class="logo-cursor" aria-hidden="true"></i></span>`;
 const tag = (text, kind = '') => `<span class="tag ${kind}">${esc(text)}</span>`;
 const avatar = name => `<span class="avatar" aria-hidden="true">${esc(String(name).slice(0, 1))}</span>`;
 
@@ -72,7 +75,7 @@ const hostRow = (h, { depth = 0, live = false, kebab = true } = {}) => `
 
 /* ---------- theme ---------- */
 
-const THEME_KEY = 'sb_theme';
+const THEME_KEY = 'wt_theme';
 const themeListeners = [];
 
 function themeChoice() {
@@ -204,7 +207,7 @@ function resolveColor(value) {
 
 // name is 'dark', 'light', 'contrast' or 'auto' (which follows the app theme).
 function xtermTheme(name) {
-  if (name === 'auto') name = themeEffective();
+  if (name === 'auto') name = 'dark'; // terminals stay dark by default, in both app themes
   if (termThemes[name]) return termThemes[name];
   const probe = el('div');
   probe.dataset.term = name;

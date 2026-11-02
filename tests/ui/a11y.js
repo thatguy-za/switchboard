@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 const AxeBuilder = require('@axe-core/playwright').default;
 // Runs axe-core (WCAG 2.0/2.1/2.2 A and AA rules) over each screen. Run it with tests/ui/a11y.sh.
-const BASE = process.env.BASE || 'http://switchboard:3000';
+const BASE = process.env.BASE || 'http://webterm:3000';
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 const found = {};
 let page;

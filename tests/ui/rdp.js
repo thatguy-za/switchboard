@@ -1,7 +1,7 @@
 // Optional check of the remote desktop pane against a real xrdp desktop (see tests/ui/README.md).
 const { chromium } = require('playwright');
 const OUT = process.env.OUT || '/work/out';
-const BASE = process.env.BASE || 'http://switchboard:3000';
+const BASE = process.env.BASE || 'http://webterm:3000';
 (async () => {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ baseURL: BASE, viewport: { width: 1360, height: 840 }, colorScheme: 'dark' });

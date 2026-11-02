@@ -1,4 +1,4 @@
-module github.com/thatguy-za/switchboard
+module github.com/thatguy-za/webterm
 
 go 1.27.3
 

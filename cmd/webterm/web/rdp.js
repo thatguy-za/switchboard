@@ -30,7 +30,7 @@ function newRdpSession(host, wtab) {
       </div>
       <div class="popover files" hidden>
         <div class="section-head"><h3>Files</h3>${iconButton('x', 'Close', 'data-file="close"')}</div>
-        <p class="small muted">Files appear on the remote desktop as the \u201cSwitchboard\u201d drive. They last only as long as this session.</p>
+        <p class="small muted">Files appear on the remote desktop as the \u201cWebTerm\u201d drive. They last only as long as this session.</p>
         <input type="file" class="fileinput" multiple aria-label="Choose files to upload">
         <div class="filecrumb small"></div>
         <div class="filelist"></div>

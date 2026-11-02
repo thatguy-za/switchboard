@@ -51,7 +51,7 @@ function foundations() {
     ['type', 'Type', 'Inter for the interface, JetBrains Mono for code, keys and terminals. Two weights do most of the work.', `<div class="stage column">
       <div class="type-sample"><span>h1</span><h1>Open a host, or add your first</h1></div>
       <div class="type-sample"><span>h2</span><h2>Two-factor authentication</h2></div>
-      <div class="type-sample"><span>body</span><span>Switchboard keeps every secret encrypted in your vault.</span></div>
+      <div class="type-sample"><span>body</span><span>WebTerm keeps every secret encrypted in your vault.</span></div>
       <div class="type-sample"><span>small</span><span class="small muted">Saved in this browser. Colours are set per host.</span></div>
       <div class="type-sample"><span>mono</span><code>SHA256:mC975tQziF3cxTXwTnHDb4xK3pJofQcLnwL5EbZIicE</code></div>
       ${scaleRows(fs, 'size')}</div>`],
@@ -71,7 +71,7 @@ const rdpSample = { id: 'y', name: 'media pc', protocol: 'rdp' };
 
 const COMPONENTS = [
   { id: 'icon', name: 'Icon', description: 'One outline set (Tabler, MIT), drawn from icons.svg. Always paired with text or a label.',
-    render: () => `<div class="stage">${icon('terminal-2', 'sm')}${icon('terminal-2')}${icon('terminal-2', 'lg')}${icon('logo', 'mark')}</div>` },
+    render: () => `<div class="stage">${icon('terminal-2', 'sm')}${icon('terminal-2')}${icon('terminal-2', 'lg')}</div>` },
   { id: 'button', name: 'Button', description: 'Secondary by default. At most one primary per view. Danger is for things that destroy data.',
     render: () => `<div class="stage">${button('Cancel')}${button('Save', { kind: 'primary' })}${button('Not now', { kind: 'quiet' })}${button('Turn off', { kind: 'danger' })}
       ${button('Delete user', { kind: 'danger solid' })}${button('Add user', { kind: 'primary', icon: 'plus' })}${button('Small', { kind: 'sm' })}${button('Disabled', { attrs: 'disabled' })}</div>
@@ -85,6 +85,8 @@ const COMPONENTS = [
       <label>Files<input type="file"></label><p class="err">That password is not long enough.</p></div>` },
   { id: 'command-chip', name: 'Command button', description: 'A saved command in the bar under a terminal. Click inserts it, Shift-click runs it.',
     render: () => `<div class="stage"><button type="button" class="cmd">Restart nginx</button><button type="button" class="cmd">Update packages</button><button type="button" class="cmd">Disk usage</button></div>` },
+  { id: 'logo', name: 'Logo', description: 'The wordmark: lowercase webterm in JetBrains Mono Bold, then a block cursor in the accent colour. It scales with font-size and only blinks on the sign-in and setup pages.',
+    render: () => `<div class="stage column">${logo()}${logo({ blink: true })}</div>` },
   { id: 'skip-link', name: 'Skip link', description: 'The first tab stop. Hidden until it has focus, then jumps past the sidebar to the page.',
     render: () => `<div class="stage"><a class="skip show" href="#c-skip-link">Skip to main content</a></div>` },
   { id: 'password-field', name: 'Password field', description: 'A password input with an eye button that shows what is typed.',
@@ -155,7 +157,7 @@ const COMPONENTS = [
 async function drawGuide() {
   const found = foundations();
   const sprite = await fetch('/icons.svg').then(r => r.text()).catch(() => '');
-  const iconNames = [...sprite.matchAll(/id="i-([a-z0-9-]+)"/g)].map(m => m[1]).filter(n => n !== 'logo');
+  const iconNames = [...sprite.matchAll(/id="i-([a-z0-9-]+)"/g)].map(m => m[1]);
 
   const section = (id, title, desc, body) => `<section id="${id}"><div><h2>${esc(title)}</h2><p class="desc">${desc}</p></div>${body}</section>`;
   const sections = [
@@ -168,7 +170,7 @@ async function drawGuide() {
     <div class="group">Components</div>${COMPONENTS.map(c => `<a href="#c-${c.id}">${esc(c.name)}</a>`).join('')}`;
 
   guide.innerHTML = `<div class="guide"><nav class="guide-nav" aria-label="Design system">${nav}</nav><main class="guide-main">
-    <div class="guide-top"><div><h1>Design system</h1><p class="desc">Tokens and components for Switchboard. Everything here is drawn from the same files the app uses.</p></div>
+    <div class="guide-top"><div><h1>Design system</h1><p class="desc">Tokens and components for WebTerm. Everything here is drawn from the same files the app uses.</p></div>
       ${segmented('Theme', [['system', 'System', 'device-laptop'], ['light', 'Light', 'sun'], ['dark', 'Dark', 'moon']], themeChoice(), 'data-theme')}</div>
     ${sections.join('')}</main></div>`;
   applyVars(guide);

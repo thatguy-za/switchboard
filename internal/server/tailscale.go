@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thatguy-za/switchboard/internal/store"
-	"github.com/thatguy-za/switchboard/internal/tailnet"
+	"github.com/thatguy-za/webterm/internal/store"
+	"github.com/thatguy-za/webterm/internal/tailnet"
 )
 
 // tailnetBackend is the embedded Tailscale node; tests swap in a fake.
@@ -45,12 +45,12 @@ func defaultTSHostname(username string) string {
 	}
 	name := strings.Trim(b.String(), "-")
 	if name == "" {
-		return "switchboard"
+		return "webterm"
 	}
 	if len(name) > 50 {
 		name = strings.Trim(name[:50], "-")
 	}
-	return "switchboard-" + name
+	return "webterm-" + name
 }
 
 type tailscaleView struct {

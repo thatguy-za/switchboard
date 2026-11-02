@@ -1,12 +1,35 @@
 # Design system
 
-Everything you see in Switchboard is built from one set of tokens and one set of components. The living
+Everything you see in WebTerm is built from one set of tokens and one set of components. The living
 style guide is served by the app itself at `/design.html` (open it from any running instance), in light and dark.
+
+The visual identity (name, logo, colours, terminal themes) comes from [`DESIGN.md`](DESIGN.md). That spec is the
+reference; what is built so far is the identity, not the whole layout.
+
+## What follows the spec, and where it differs
+
+- **Names:** the spec's `--wt-*` tokens are our semantic tokens: `--wt-bg` is `--bg`, `--wt-surface` is
+  `--surface-raised`, `--wt-surface-2` is `--surface-side` and `--surface-field`, `--wt-surface-3` is
+  `--surface-selected`, `--wt-accent` is `--acc`, `--wt-accent-text` is `--acc-text` (use it for accent-coloured text
+  and links), `--wt-on-accent` is `--acc-ink`. The values are the spec's.
+- **Two values are adjusted to meet 4.5:1 text contrast on the selected and hovered row colours:** muted text
+  (`--text-3`, `#9097a3` dark, `#5f6572` light) and warning text on light (`--warn`, `#9a6412`). `go test` checks
+  every text pair.
+- **White on danger:** the spec's white text on the dark danger red is 2.7:1, so dark uses the near-black `--acc-ink` green
+  for `--on-danger`.
+- **Terminals** are dark by default in both app themes, as in the spec ("Default (dark)"). Light, high contrast and
+  the other palettes are per-host choices.
+- **Not built yet:** the top bar, status bar, side-panel host editor, 4-step first-run, tab drag and drop, the
+  terminal settings page, and the extra colour schemes. Jump hosts, port forwarding and the 12-character password
+  minimum in the spec are intentionally not built.
+
+Brand assets (`icon.svg`, `favicon.svg`, the PNG icons, `favicon.ico`, `logo-light.svg`, `logo-dark.svg`) are
+rebuilt with `scripts/brand/build.sh`.
 
 ## Layers
 
 ```
-cmd/switchboard/web/
+cmd/webterm/web/
   css/tokens.css      raw values: palette, scales, sizes, motion. The only file allowed to hold them.
   css/base.css        reset, typography, focus, and a few layout helpers
   css/components.css  every component, each starting with an @component marker

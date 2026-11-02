@@ -1,4 +1,4 @@
-// Package tailnet runs an embedded Tailscale node so Switchboard can reach
+// Package tailnet runs an embedded Tailscale node so WebTerm can reach
 // hosts on a tailnet and, if asked, serve its web UI there.
 package tailnet
 

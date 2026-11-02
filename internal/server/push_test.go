@@ -66,7 +66,7 @@ func TestKeyPush(t *testing.T) {
 	home := t.TempDir()
 	sshd := newTestSSHServerHome(t, "s3cret", nil, home)
 
-	_, gen := u.do("POST", "/api/identities/generate", map[string]string{"name": "laptop", "comment": "owner@switchboard", "kind": "ed25519"})
+	_, gen := u.do("POST", "/api/identities/generate", map[string]string{"name": "laptop", "comment": "owner@webterm", "kind": "ed25519"})
 	identityID := gen["id"].(string)
 	hostID := addHost(t, u, "box", sshd.port, nil)
 
@@ -87,7 +87,7 @@ func TestKeyPush(t *testing.T) {
 		}
 	}
 	data, _ := os.ReadFile(filepath.Join(home, ".ssh", "authorized_keys"))
-	if strings.Count(string(data), "\n") != 1 || !strings.HasPrefix(string(data), "ssh-ed25519 ") || !strings.Contains(string(data), "owner@switchboard") {
+	if strings.Count(string(data), "\n") != 1 || !strings.HasPrefix(string(data), "ssh-ed25519 ") || !strings.Contains(string(data), "owner@webterm") {
 		t.Fatalf("authorized_keys: %q", data)
 	}
 

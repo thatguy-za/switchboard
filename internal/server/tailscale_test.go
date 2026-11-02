@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thatguy-za/switchboard/internal/tailnet"
+	"github.com/thatguy-za/webterm/internal/tailnet"
 )
 
 // fakeTailnet stands in for the embedded node: it records what it is asked to
@@ -45,7 +45,7 @@ func (f *fakeTailnet) HasState() bool  { f.mu.Lock(); defer f.mu.Unlock(); retur
 func (f *fakeTailnet) Connected() bool { f.mu.Lock(); defer f.mu.Unlock(); return f.connected }
 func (f *fakeTailnet) Status() tailnet.Status {
 	if f.Connected() {
-		return tailnet.Status{State: tailnet.StateUp, Name: "switchboard.tail1234.ts.net", IPs: []string{"100.64.0.2"}}
+		return tailnet.Status{State: tailnet.StateUp, Name: "webterm.tail1234.ts.net", IPs: []string{"100.64.0.2"}}
 	}
 	return tailnet.Status{State: tailnet.StateOff}
 }
@@ -73,11 +73,11 @@ func TestTailscaleSettings(t *testing.T) {
 	fake := &fakeTailnet{}
 	useTailnet(srv, fake)
 
-	if code, out := u.do("GET", "/api/tailscale", nil); code != 200 || out["enabled"] != false || out["hostname"] != "switchboard-owner" || out["serve_ui"] != true {
+	if code, out := u.do("GET", "/api/tailscale", nil); code != 200 || out["enabled"] != false || out["hostname"] != "webterm-owner" || out["serve_ui"] != true {
 		t.Fatalf("defaults: %d %v", code, out)
 	}
 	// The first join needs a key; names must be valid DNS labels.
-	if code, out := u.do("POST", "/api/tailscale", map[string]any{"enabled": true, "hostname": "switchboard"}); code != 400 || out["error"] != "auth_key_required" {
+	if code, out := u.do("POST", "/api/tailscale", map[string]any{"enabled": true, "hostname": "webterm"}); code != 400 || out["error"] != "auth_key_required" {
 		t.Fatalf("enabling without a key: %d %v", code, out)
 	}
 	for _, bad := range []string{"has space", "-lead", "trail-", "UPPER_case", strings.Repeat("a", 64)} {
@@ -93,7 +93,7 @@ func TestTailscaleSettings(t *testing.T) {
 	}
 
 	// Signing in instead of pasting a key joins without one.
-	if code, out := u.do("POST", "/api/tailscale", map[string]any{"enabled": true, "hostname": "switchboard", "sign_in": true}); code != 200 {
+	if code, out := u.do("POST", "/api/tailscale", map[string]any{"enabled": true, "hostname": "webterm", "sign_in": true}); code != 200 {
 		t.Fatalf("sign in: %d %v", code, out)
 	}
 	if len(fake.started) != 1 || !fake.started[0].SignIn || fake.started[0].AuthKey != "" {
@@ -157,7 +157,7 @@ func TestTailscaleIsPerUser(t *testing.T) {
 	m.do("POST", "/api/password", map[string]string{"current": "temporary password", "new": "a different long password"})
 
 	// A member can use Tailscale, with a device name made from their username.
-	if code, out := m.do("GET", "/api/tailscale", nil); code != 200 || out["hostname"] != "switchboard-kim" || out["enabled"] != false {
+	if code, out := m.do("GET", "/api/tailscale", nil); code != 200 || out["hostname"] != "webterm-kim" || out["enabled"] != false {
 		t.Fatalf("member view: %d %v", code, out)
 	}
 	if code, out := m.do("POST", "/api/tailscale", map[string]any{"enabled": true, "hostname": "kims-box", "auth_key": "tskey-auth-k"}); code != 200 || out["enabled"] != true {
@@ -194,7 +194,7 @@ func TestTailscaleIsPerUser(t *testing.T) {
 }
 
 func TestDefaultTailscaleHostname(t *testing.T) {
-	for in, want := range map[string]string{"owner": "switchboard-owner", "Kim O'Neil": "switchboard-kim-o-neil", "   ": "switchboard", "ünï": "switchboard-n", "a_b": "switchboard-a-b"} {
+	for in, want := range map[string]string{"owner": "webterm-owner", "Kim O'Neil": "webterm-kim-o-neil", "   ": "webterm", "ünï": "webterm-n", "a_b": "webterm-a-b"} {
 		if got := defaultTSHostname(in); got != want || !tsHostnameRe.MatchString(got) {
 			t.Fatalf("%q -> %q, want %q", in, got, want)
 		}

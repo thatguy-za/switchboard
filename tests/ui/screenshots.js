@@ -2,7 +2,7 @@ const { chromium } = require('playwright');
 // Takes the screenshots in docs/screenshots for the README, against a throwaway server with demo data.
 // Run it with tests/ui/screenshots.sh.
 const OUT = process.env.OUT || '/work/shots';
-const BASE = process.env.BASE || 'http://switchboard:3000';
+const BASE = process.env.BASE || 'http://webterm:3000';
 const SCALE = 2;
 const dlg = () => page.locator('dialog[open]');
 let page;

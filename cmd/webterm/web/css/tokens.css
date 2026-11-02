@@ -1,0 +1,190 @@
+/* ==========================================================================
+   WebTerm design tokens
+
+   Three layers. Only this file may contain raw colours, lengths and timings.
+     1. Primitives   the palette and the scales (space, type, radius, size, motion)
+     2. Semantic     what a colour is for (surface, text, accent), set per theme
+     3. Component    sizes that belong to one component
+   Everything else in the interface refers to these by name.
+   ========================================================================== */
+
+:root {
+  /* ---- 1. primitives: palette ---- */
+  --ink-950: #0a0b0c; --ink-900: #0d0e10; --ink-875: #0f1013; --ink-850: #111215; --ink-800: #171a1e;
+  --ink-750: #1a1c20; --ink-700: #1c1f24; --ink-600: #212429; --ink-500: #2c3037; --ink-300: #9096a0;
+  --ink-200: #9aa0a9; --ink-50: #e8eaed;
+  --paper-0: #ffffff; --paper-25: #fdfdfc; --paper-50: #fafaf8; --paper-100: #f2f2ef; --paper-150: #ededea;
+  --paper-200: #e8e8e3; --paper-300: #e4e4df; --paper-400: #d3d3cc; --paper-600: #60656d; --paper-700: #565b64;
+  --paper-900: #17181a;
+  --green-400: #6fc3a5; --green-700: #256f55; --green-950: #08241a;
+  --red-400: #f0786b; --red-600: #c4382b;
+  --amber-400: #e3b563; --amber-700: #876000;
+  --black: #000000; --white: #ffffff;
+
+  /* WebTerm palette (DESIGN.md). Dark and light are designed separately, not inverted. */
+  --brand-ink: #14181f; --brand-paper: #f3f1ea;
+  --wt-green-500: #2fb383; --wt-green-600: #279c72; --wt-green-400: #3cc793; --wt-green-300: #4fd3a1; --wt-green-700: #1e7d5b; --wt-green-950: #0b1f17;
+  --wt-red-400: #f07a63; --wt-red-600: #c2412d;
+  --wt-amber-400: #e8a33d; --wt-amber-700: #9a6412;
+  --dk-bg: #0f1216; --dk-1: #161a20; --dk-2: #1d222a; --dk-3: #262c35; --dk-hover: #222730; --dk-line: #2b313b; --dk-line-strong: #3a414d;
+  --dk-text: #f3f1ea; --dk-text-2: #9aa0ac; --dk-text-3: #9097a3;
+  --lt-bg: #f7f6f2; --lt-1: #ffffff; --lt-2: #f3f1ea; --lt-3: #e9e6dc; --lt-hover: #eeebe3; --lt-term: #fbfaf7; --lt-line: #e2dfd6; --lt-line-strong: #c9c5b9;
+  --lt-text: #14181f; --lt-text-2: #5a6170; --lt-text-3: #5f6572;
+
+  /* ---- 1. primitives: scales ---- */
+  --s-1: 2px; --s-2: 4px; --s-3: 6px; --s-4: 8px; --s-5: 10px; --s-6: 12px; --s-7: 14px; --s-8: 16px; --s-9: 18px;
+  --s-10: 20px; --s-11: 22px; --s-13: 26px; --s-12: 24px; --s-14: 28px; --s-16: 32px; --s-20: 40px; --s-24: 48px; --s-30: 60px;
+
+  --font-ui: "Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --fs-3xl: 28px; --fs-2xs: 11px; --fs-xs: 12px; --fs-sm: 13px; --fs-md: 14px; --fs-lg: 15px; --fs-xl: 16px; --fs-2xl: 20px;
+  --lh-tight: 1.25; --lh-base: 1.5; --lh-loose: 1.7;
+  --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600;
+  --tracking-tight: -.015em; --tracking-snug: -.01em;
+
+  --r-xs: 4px; --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-xl: 14px; --r-full: 999px;
+  --z-popover: 6; --z-overlay: 5; --z-drawer: 40; --z-scrim: 39; --z-toast: 200; --z-divider: 2;
+
+  --dur-fast: 120ms; --dur-base: 200ms; --dur-slow: 240ms; --dur-toast: 2600ms;
+  --ease-out: cubic-bezier(.2, 0, 0, 1);
+
+  /* ---- 3. component sizes ---- */
+  --h-control: 32px; --h-control-sm: 28px; --h-control-lg: 36px; --h-field: 34px;
+  --h-icon-btn: 28px; --h-icon-btn-sm: 24px; --h-tag: 18px; --h-row: 30px; --h-row-lg: 38px; --h-nav: 32px;
+  --h-folder: 28px; --h-tabs: 42px; --h-tab: 34px; --h-phead: 30px; --h-topbar: 46px; --h-palette-input: 50px;
+  --icon-sm: 14px; --icon-md: 16px; --icon-lg: 20px; --icon-xl: 26px; --icon-hero: 30px;
+  --w-side: 252px; --w-dialog: 460px; --w-dialog-wide: 580px; --w-palette: 560px; --w-popover: 390px;
+  --w-auth: 372px; --w-page: 900px; --w-subnav: 188px; --w-toast: 360px; --w-welcome: 420px; --w-narrow: 96px;
+  --w-switch: 36px; --h-switch: 20px; --size-check: 16px; --size-avatar: 24px; --size-dot: 7px;
+  --w-select: 190px; --w-drawer: 300px;
+  --h-key: 38px; --w-narrow-sm: 76px; --w-narrow-wide: 150px; --w-tab-max: 220px; --w-tab-label-max: 170px; --w-field-min: 140px; --w-head-min: 220px;
+  --w-swatch-min: 150px; --w-icon-cell: 112px; --w-shadow-box: 120px; --w-scale-label: 90px; --w-scale-value: 60px;
+  --h-stage: 80px; --h-stage-tall: 220px;
+  --hit: 4px;
+  --logo-gap: .14em; --logo-cursor-w: .5em; --logo-cursor-h: .86em; --logo-cursor-r: .07em; --logo-tracking: -.04em; --logo-descent: .12em; --dur-blink: 1060ms;
+}
+
+/* ---- 2. semantic: dark (the default) ---- */
+:root {
+  --bg: var(--dk-bg);
+  --surface-side: var(--dk-2);
+  --surface-raised: var(--dk-1);
+  --surface-field: var(--dk-2);
+  --surface-term: var(--dk-bg);
+  --surface-selected: var(--dk-3);
+  --surface-hover: var(--dk-hover);
+  --line: var(--dk-line);
+  --line-strong: var(--dk-line-strong);
+  --text: var(--dk-text);
+  --text-2: var(--dk-text-2);
+  --text-3: var(--dk-text-3);
+  --acc: var(--wt-green-500);
+  --acc-hover: var(--wt-green-400);
+  --acc-text: var(--wt-green-300);
+  --acc-ink: var(--wt-green-950);
+  --danger: var(--wt-red-400);
+  --warn: var(--wt-amber-400);
+  --switch-knob: var(--white);
+  --qr-bg: var(--white);
+  --desktop-bg: var(--black);
+  --on-danger: var(--wt-green-950);
+  --shadow-ink: var(--black);
+  --overlay-ink: var(--black);
+  --acc-soft: color-mix(in srgb, var(--acc) 16%, transparent);
+  --danger-soft: color-mix(in srgb, var(--danger) 16%, transparent);
+  --warn-soft: color-mix(in srgb, var(--warn) 16%, transparent);
+  --overlay: color-mix(in srgb, var(--overlay-ink) 62%, transparent);
+  --shadow-lg: 0 8px 24px color-mix(in srgb, var(--shadow-ink) 50%, transparent);
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--acc);
+  color-scheme: dark;
+}
+
+/* ---- 2. semantic: light ---- */
+:root[data-theme="light"] {
+  --bg: var(--lt-bg);
+  --surface-side: var(--lt-2);
+  --surface-raised: var(--lt-1);
+  --surface-field: var(--lt-2);
+  --surface-term: var(--lt-term);
+  --surface-selected: var(--lt-3);
+  --surface-hover: var(--lt-hover);
+  --line: var(--lt-line);
+  --line-strong: var(--lt-line-strong);
+  --text: var(--lt-text);
+  --text-2: var(--lt-text-2);
+  --text-3: var(--lt-text-3);
+  --acc: var(--wt-green-500);
+  --acc-hover: var(--wt-green-600);
+  --acc-text: var(--wt-green-700);
+  --acc-ink: var(--wt-green-950);
+  --danger: var(--wt-red-600);
+  --warn: var(--wt-amber-700);
+  --on-danger: var(--white);
+  --shadow-ink: var(--brand-ink);
+  --overlay-ink: var(--brand-ink);
+  --acc-soft: color-mix(in srgb, var(--acc) 12%, transparent);
+  --danger-soft: color-mix(in srgb, var(--danger) 12%, transparent);
+  --warn-soft: color-mix(in srgb, var(--warn) 14%, transparent);
+  --overlay: color-mix(in srgb, var(--overlay-ink) 34%, transparent);
+  --shadow-lg: 0 8px 24px color-mix(in srgb, var(--shadow-ink) 16%, transparent);
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--acc);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg: var(--lt-bg);
+    --surface-side: var(--lt-2);
+    --surface-raised: var(--lt-1);
+    --surface-field: var(--lt-2);
+    --surface-term: var(--lt-term);
+    --surface-selected: var(--lt-3);
+    --surface-hover: var(--lt-hover);
+    --line: var(--lt-line);
+    --line-strong: var(--lt-line-strong);
+    --text: var(--lt-text);
+    --text-2: var(--lt-text-2);
+    --text-3: var(--lt-text-3);
+    --acc: var(--wt-green-500);
+    --acc-hover: var(--wt-green-600);
+    --acc-text: var(--wt-green-700);
+    --acc-ink: var(--wt-green-950);
+    --danger: var(--wt-red-600);
+    --warn: var(--wt-amber-700);
+    --on-danger: var(--white);
+    --shadow-ink: var(--brand-ink);
+    --overlay-ink: var(--brand-ink);
+    --acc-soft: color-mix(in srgb, var(--acc) 12%, transparent);
+    --danger-soft: color-mix(in srgb, var(--danger) 12%, transparent);
+    --warn-soft: color-mix(in srgb, var(--warn) 14%, transparent);
+    --overlay: color-mix(in srgb, var(--overlay-ink) 34%, transparent);
+    --shadow-lg: 0 8px 24px color-mix(in srgb, var(--shadow-ink) 16%, transparent);
+    --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--acc);
+    color-scheme: light;
+  }
+}
+
+/* ---- terminal palettes ----
+   Read by JavaScript to colour xterm. A host picks one; "auto" follows the theme. */
+[data-term="dark"] {
+  --term-bg: var(--dk-bg); --term-fg: #e6e3da; --term-cursor: var(--wt-green-500);
+  --term-selection: color-mix(in srgb, var(--wt-green-500) 28%, transparent);
+  --term-black: #1d222a; --term-red: #f07a63; --term-green: #2fb383; --term-yellow: #e8a33d;
+  --term-blue: #6ea3f8; --term-magenta: #c792ea; --term-cyan: #4fc1d6; --term-white: #c9c5b9;
+  --term-bright-black: #5a6170; --term-bright-red: #ff9c87; --term-bright-green: #4fd3a1; --term-bright-yellow: #f5c26b;
+  --term-bright-blue: #94bcff; --term-bright-magenta: #ddb3f5; --term-bright-cyan: #7fdceb; --term-bright-white: #f7f6f2;
+}
+[data-term="light"] {
+  --term-bg: var(--lt-term); --term-fg: #1d222a; --term-cursor: var(--wt-green-700);
+  --term-selection: color-mix(in srgb, var(--wt-green-500) 22%, transparent);
+  --term-black: #14181f; --term-red: #c2412d; --term-green: #1e7d5b; --term-yellow: #9a6412;
+  --term-blue: #2f6fd6; --term-magenta: #8e4ec6; --term-cyan: #167e91; --term-white: #c9c5b9;
+  --term-bright-black: #6e7480; --term-bright-red: #d9593f; --term-bright-green: #279c72; --term-bright-yellow: #b7791f;
+  --term-bright-blue: #4c8df6; --term-bright-magenta: #a56bd8; --term-bright-cyan: #2397ab; --term-bright-white: #f7f6f2;
+}
+[data-term="contrast"] {
+  --term-bg: var(--black); --term-fg: var(--white); --term-cursor: var(--white); --term-selection: #555555;
+  --term-black: #000000; --term-red: #ff5f56; --term-green: #5af78e; --term-yellow: #f3f99d;
+  --term-blue: #57c7ff; --term-magenta: #ff6ac1; --term-cyan: #9aedfe; --term-white: #f1f1f0;
+  --term-bright-black: #686868; --term-bright-red: #ff5f56; --term-bright-green: #5af78e; --term-bright-yellow: #f3f99d;
+  --term-bright-blue: #57c7ff; --term-bright-magenta: #ff6ac1; --term-bright-cyan: #9aedfe; --term-bright-white: #ffffff;
+}

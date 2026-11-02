@@ -17,7 +17,7 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/thatguy-za/switchboard/internal/guac"
+	"github.com/thatguy-za/webterm/internal/guac"
 )
 
 var fakeArgNames = []string{"hostname", "port", "username", "password", "domain", "security", "ignore-cert",
@@ -208,7 +208,7 @@ func TestRDPHandshakeAndFiltering(t *testing.T) {
 	for k, want := range map[string]string{
 		"hostname": "10.0.0.5", "port": "3389", "username": "alice", "domain": "CORP", "password": "pa55!",
 		"security": "nla", "ignore-cert": "true", "resize-method": "display-update", "enable-drive": "true",
-		"client-name": "Switchboard", "unknown-extra": "",
+		"client-name": "WebTerm", "unknown-extra": "",
 	} {
 		if g.args[k] != want {
 			t.Errorf("connect %s = %q, want %q", k, g.args[k], want)

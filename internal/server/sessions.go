@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thatguy-za/switchboard/internal/crypto"
+	"github.com/thatguy-za/webterm/internal/crypto"
 )
 
 const pendingTTL = 5 * time.Minute

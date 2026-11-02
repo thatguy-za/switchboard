@@ -7,7 +7,6 @@
 .ic { width: var(--icon-md); height: var(--icon-md); flex: none; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .ic.lg { width: var(--icon-lg); height: var(--icon-lg); }
 .ic.sm { width: var(--icon-sm); height: var(--icon-sm); }
-.ic.mark { width: var(--icon-hero); height: var(--icon-hero); color: var(--text); stroke-width: 1.6; }
 
 /* @component button */
 button {
@@ -20,7 +19,7 @@ button:hover { background: var(--surface-selected); }
 button:active { transform: scale(.98); }
 button:disabled { opacity: .5; cursor: default; transform: none; }
 button.primary { background: var(--acc); border-color: transparent; color: var(--acc-ink); font-weight: var(--fw-medium); }
-button.primary:hover { background: var(--acc); filter: brightness(1.07); }
+button.primary:hover { background: var(--acc-hover); }
 button.quiet { background: transparent; border-color: transparent; color: var(--text-2); }
 button.quiet:hover { background: var(--surface-selected); color: var(--text); }
 button.danger { color: var(--danger); }
@@ -28,7 +27,7 @@ button.danger:hover { background: var(--danger-soft); }
 button.danger.solid { background: var(--danger); color: var(--on-danger); border-color: transparent; }
 button.sm { height: var(--h-control-sm); padding: 0 var(--s-5); font-size: var(--fs-xs); }
 button.block { width: 100%; height: var(--h-control-lg); }
-button.link { height: auto; padding: 0; border: 0; background: none; color: var(--acc); }
+button.link { height: auto; padding: 0; border: 0; background: none; color: var(--acc-text); }
 button.link:hover { text-decoration: underline; background: none; }
 
 /* @component skip-link */
@@ -39,6 +38,12 @@ button.link:hover { text-decoration: underline; background: none; }
 /* @component command-chip */
 button.cmd { flex: none; height: var(--h-control-sm); padding: 0 var(--s-5); font-size: var(--fs-xs); white-space: nowrap; }
 code.block { display: block; margin-top: var(--s-5); padding: var(--s-4) var(--s-5); background: var(--surface-field); border: 1px solid var(--line); border-radius: var(--r-sm); white-space: pre-wrap; word-break: break-all; }
+
+/* @component logo */
+.logo { display: inline-flex; align-items: baseline; gap: var(--logo-gap); font-family: var(--font-mono); font-weight: 700; letter-spacing: var(--logo-tracking); line-height: 1; white-space: nowrap; color: var(--text); }
+.logo-cursor { display: inline-block; width: var(--logo-cursor-w); height: var(--logo-cursor-h); border-radius: var(--logo-cursor-r); background: var(--acc); transform: translateY(var(--logo-descent)); }
+.logo.blink .logo-cursor { animation: logo-blink var(--dur-blink) steps(1, end) infinite; }
+@keyframes logo-blink { 0%, 49.99% { opacity: 1; } 50%, 100% { opacity: 0; } }
 
 /* @component icon-button */
 button.icon { width: var(--h-icon-btn); height: var(--h-icon-btn); padding: 0; border-color: transparent; background: transparent; color: var(--text-3); }
@@ -94,8 +99,9 @@ input[type=checkbox]:checked::after { content: ""; width: var(--s-4); height: va
 
 /* @component tag */
 .tag { display: inline-flex; align-items: center; height: var(--h-tag); padding: 0 var(--s-3); font-size: var(--fs-2xs); font-weight: var(--fw-medium); border-radius: var(--r-xs); color: var(--text-2); background: var(--surface-selected); white-space: nowrap; }
-.tag.acc { color: var(--acc); background: var(--acc-soft); }
-.tag.warn { color: var(--warn); background: var(--warn-soft); }
+/* Tag text is a little stronger than --acc-text and --warn, so it passes 4.5:1 on its tinted background. */
+.tag.acc { color: color-mix(in srgb, var(--acc-text) 75%, var(--text)); background: var(--acc-soft); }
+.tag.warn { color: color-mix(in srgb, var(--warn) 70%, var(--text)); background: var(--warn-soft); }
 
 /* @component kbd */
 .kbd { display: inline-flex; align-items: center; height: var(--h-tag); padding: 0 var(--s-2); font: var(--fw-medium) var(--fs-2xs) var(--font-ui); color: var(--text-3); border: 1px solid var(--line-strong); border-radius: var(--r-xs); }
@@ -142,7 +148,7 @@ details > *:not(summary) { margin-top: var(--s-5); }
 .prow .pname2 { font-weight: var(--fw-medium); }
 .prow .res { flex: 1 0 100%; padding-left: var(--s-14); font-size: var(--fs-xs); }
 .res:empty { display: none; }
-.res.ok { color: var(--acc); }
+.res.ok { color: var(--acc-text); }
 .res.bad { color: var(--danger); }
 .res.work { color: var(--text-2); }
 

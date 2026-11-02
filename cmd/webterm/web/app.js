@@ -88,12 +88,12 @@ function route() {
 /* ---------- sign in, setup, recovery (full pages) ---------- */
 
 function authPage(inner) {
-  return `<div class="auth"><div class="auth-box"><div class="wordmark">${icon('logo')}Switchboard</div>${inner}<p class="version">Version ${esc(state.version || 'dev')}</p></div></div>`;
+  return `<div class="auth"><div class="auth-box">${logo({ blink: true })}${inner}<p class="version">Version ${esc(state.version || 'dev')}</p></div></div>`;
 }
 
 function viewSetup() {
   show(authPage(`
-    <div><h1>Set up Switchboard</h1><p class="sub">Create the owner account. It becomes the first admin and gets its own encrypted vault.</p></div>
+    <div><h1>Set up WebTerm</h1><p class="sub">Create the owner account. It becomes the first admin and gets its own encrypted vault.</p></div>
     <form id="f">
       <label>Username<input type="text" name="username" autocomplete="username" autocapitalize="off" required></label>
       <label>Password<input type="password" name="password" autocomplete="new-password" required></label>
@@ -311,7 +311,7 @@ async function renderTailscale(host) {
       actions: iconButton('plus', `Add ${p.name || p.dns_name} as a host`, `data-ts-add="${esc(p.dns_name || p.ips[0])}" data-ts-name="${esc(p.name)}"`),
     })).join(''))}` : '';
   host.innerHTML = panel(
-    settingRow(`Tailscale ${status}`, `Connect your own device to your tailnet to reach SSH and RDP hosts by tailnet address or name, and optionally open Switchboard from it. Other users set up theirs separately. Names your network already knows resolve as usual; the rest are looked up on your tailnet.${where ? `<div>${where}</div>` : ''}${url}${approve}${problem}`,
+    settingRow(`Tailscale ${status}`, `Connect your own device to your tailnet to reach SSH and RDP hosts by tailnet address or name, and optionally open WebTerm from it. Other users set up theirs separately. Names your network already knows resolve as usual; the rest are looked up on your tailnet.${where ? `<div>${where}</div>` : ''}${url}${approve}${problem}`,
       `${approve ? button('Open sign-in page', { kind: 'primary', icon: 'login', attrs: 'id="tslogin"' }) : ''}${button('Configure', { icon: 'settings', attrs: 'id="tsedit"' })}${switchControl({ id: 'tson', checked: t.enabled, label: 'Use Tailscale' })}`) +
     (t.has_state ? settingRow('Remove from tailnet', 'Log this device out of Tailscale and forget it. You will need a new auth key to join again.',
       button('Remove', { kind: 'danger', attrs: 'id="tsrm"' })) : '')) + peers;
@@ -392,7 +392,7 @@ function buildShell() {
     <div class="shell" id="shell">
       <a class="skip" href="#main" id="skip">Skip to main content</a>
       <aside class="side" id="side" aria-label="Hosts">
-        <div class="side-head"><div class="wordmark">${icon('logo')}Switchboard</div>${iconButton('layout-sidebar', 'Collapse sidebar', 'id="collapse" aria-expanded="true"', 'side-collapse')}</div>
+        <div class="side-head">${logo()}${iconButton('layout-sidebar', 'Collapse sidebar', 'id="collapse" aria-expanded="true"', 'side-collapse')}</div>
         <button class="find" id="find">${icon('search')}<span class="grow">Search or connect</span><span class="kbd">${IS_MAC ? '⌘K' : 'Ctrl K'}</span></button>
         <div class="side-actions">${button('Host', { kind: 'sm', icon: 'plus', attrs: 'id="add-host"' })}${button('Folder', { kind: 'sm', icon: 'folder-plus', attrs: 'id="add-folder"' })}</div>
         <div class="tree" id="tree"></div>
@@ -405,7 +405,7 @@ function buildShell() {
       </aside>
       <div class="scrim" id="scrim"></div>
       <main class="main" id="main" tabindex="-1">
-        <div class="topbar">${iconButton('menu-2', 'Open menu', 'id="menu"')}<div class="wordmark">${icon('logo')}Switchboard</div></div>
+        <div class="topbar">${iconButton('menu-2', 'Open menu', 'id="menu"')}${logo()}</div>
         <div class="view" id="view-terminals"></div>
         <div class="view" id="view-identities" hidden></div>
         <div class="view" id="view-settings" hidden></div>
@@ -426,7 +426,7 @@ function buildShell() {
 }
 
 const PHONE = window.matchMedia('(max-width: 760px)');
-const SIDE_KEY = 'sb_side_collapsed';
+const SIDE_KEY = 'wt_side_collapsed';
 function sideCollapsed() { try { return localStorage.getItem(SIDE_KEY) === '1'; } catch (e) { return false; } }
 
 // On a computer the sidebar can be tucked away; the top bar then brings it back.
@@ -447,7 +447,7 @@ function showView(name) {
   if (!shell) return;
   toggleSide(false);
   for (const v of ['terminals', 'identities', 'settings']) $('#view-' + v, shell).hidden = v !== name;
-  document.title = (name === 'terminals' ? '' : name[0].toUpperCase() + name.slice(1) + ' · ') + 'Switchboard';
+  document.title = (name === 'terminals' ? '' : name[0].toUpperCase() + name.slice(1) + ' · ') + 'WebTerm';
   shell.querySelectorAll('.nav[data-view]').forEach(b => {
     if (b.dataset.view === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
@@ -470,7 +470,7 @@ function renderSettings() {
   if (admin) tabs.push(['users', 'Users', 'users'], ['server', 'Server', 'server']);
   if (!tabs.some(t => t[0] === settingsTab)) settingsTab = 'account';
   root.innerHTML = `<div class="page"><div class="page-in">
-    ${pageHead('Settings', 'Your account, security and how Switchboard looks.')}
+    ${pageHead('Settings', 'Your account, security and how WebTerm looks.')}
     <div class="settings">
       <nav class="subnav" aria-label="Settings sections">${tabs.map(([id, label, ic]) =>
         `<button type="button" data-tab="${id}"${id === settingsTab ? ' aria-current="page"' : ''}>${icon(ic)}${label}</button>`).join('')}</nav>
@@ -496,7 +496,7 @@ async function renderSettingsBody() {
 
   if (settingsTab === 'account') {
     body.innerHTML = panel(
-      settingRow('Signed in as', 'Your name on this Switchboard.', `${tag(u.role === 'admin' ? 'Admin' : 'Member', u.role === 'admin' ? 'acc' : '')}<strong>${esc(u.username)}</strong>`) +
+      settingRow('Signed in as', 'Your name on this WebTerm.', `${tag(u.role === 'admin' ? 'Admin' : 'Member', u.role === 'admin' ? 'acc' : '')}<strong>${esc(u.username)}</strong>`) +
       settingRow('Password', 'Changing it keeps your vault and everything saved in it readable.', button('Change password', { attrs: 'id="pw"' })) +
       settingRow('Sessions', 'Ends your sessions on every device, including this one.', button('Sign out everywhere', { attrs: 'id="all"' })));
     bind('#pw', changePasswordDialog);
@@ -520,7 +520,7 @@ async function renderSettingsBody() {
     }));
   } else if (settingsTab === 'appearance') {
     const prefs = termPrefs();
-    const fonts = [['Switchboard mono', DEFAULT_FONT], ['System monospace', 'ui-monospace, Menlo, Consolas, monospace'], ['Menlo', 'Menlo, monospace'], ['Consolas', 'Consolas, monospace'], ['Courier New', '"Courier New", monospace']];
+    const fonts = [['WebTerm mono', DEFAULT_FONT], ['System monospace', 'ui-monospace, Menlo, Consolas, monospace'], ['Menlo', 'Menlo, monospace'], ['Consolas', 'Consolas, monospace'], ['Courier New', '"Courier New", monospace']];
     body.innerHTML = panel(
       settingRow('Theme', 'Follows your system unless you choose one.', segmented('Theme', [['system', 'System', 'device-laptop'], ['light', 'Light', 'sun'], ['dark', 'Dark', 'moon']], themeChoice(), 'data-theme')) +
       settingRow('Terminal font', 'Saved in this browser. Colours are set per host.', `
@@ -573,13 +573,13 @@ async function renderSettingsBody() {
     body.innerHTML = `<div class="stack">
       ${state.key_backup_pending ? notice('alert-triangle', '<strong>Back up the master key.</strong><div class="muted">If it is lost, no vault can be opened. Download a copy and keep it away from this server.</div>') : ''}
       ${panel(
-        settingRow('Master key', 'Generated when Switchboard first started. Every stored secret is encrypted with it.', button('Download key', { kind: 'primary', icon: 'download', attrs: 'id="key"' })) +
+        settingRow('Master key', 'Generated when WebTerm first started. Every stored secret is encrypted with it.', button('Download key', { kind: 'primary', icon: 'download', attrs: 'id="key"' })) +
         settingRow('Backup confirmed', 'Turn this on once the key is stored safely. It clears the reminder.', switchControl({ id: 'keydone', checked: !state.key_backup_pending, disabled: !state.key_backup_pending, label: 'Backup confirmed' })))}
     </div>`;
     bind('#key', () => passwordDialog('Download the master key', 'Enter your password to download it.', 'Download', async password => {
       const r = await api('POST', '/admin/master-key', { password });
       const url = URL.createObjectURL(new Blob([r.master_key + '\n'], { type: 'text/plain' }));
-      const a = Object.assign(document.createElement('a'), { href: url, download: 'switchboard-master.key' });
+      const a = Object.assign(document.createElement('a'), { href: url, download: 'webterm-master.key' });
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       toast('Master key downloaded');
@@ -600,7 +600,7 @@ async function renderSettingsBody() {
 
 /* ---------- start ---------- */
 
-refresh().catch(() => { app.innerHTML = authPage('<div><h1>Can’t reach the server</h1><p class="sub">Check that Switchboard is running, then reload this page.</p></div>'); });
+refresh().catch(() => { app.innerHTML = authPage('<div><h1>Can’t reach the server</h1><p class="sub">Check that WebTerm is running, then reload this page.</p></div>'); });
 
 // Lets browsers install the app and keeps its files available briefly offline.
 // Browsers only offer this over HTTPS or on localhost.

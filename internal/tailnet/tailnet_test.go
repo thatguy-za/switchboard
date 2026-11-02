@@ -27,7 +27,7 @@ func TestIsShortName(t *testing.T) {
 
 func TestNeedsKeyWithoutState(t *testing.T) {
 	m := New(t.TempDir() + "/ts")
-	m.Start(Options{Hostname: "switchboard"})
+	m.Start(Options{Hostname: "webterm"})
 	if st := m.Status(); st.State != StateNeedsKey {
 		t.Fatalf("expected needs_key, got %+v", st)
 	}

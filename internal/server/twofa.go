@@ -15,8 +15,8 @@ import (
 	"time"
 
 	qrcode "github.com/skip2/go-qrcode"
-	"github.com/thatguy-za/switchboard/internal/crypto"
-	"github.com/thatguy-za/switchboard/internal/store"
+	"github.com/thatguy-za/webterm/internal/crypto"
+	"github.com/thatguy-za/webterm/internal/store"
 )
 
 var b32 = base32.StdEncoding.WithPadding(base32.NoPadding)
@@ -95,7 +95,7 @@ func (s *Server) handle2FASetup(w http.ResponseWriter, _ *http.Request, a *authe
 		return
 	}
 	text := b32.EncodeToString(secret)
-	uri := fmt.Sprintf("otpauth://totp/Switchboard:%s?secret=%s&issuer=Switchboard&algorithm=SHA1&digits=6&period=30",
+	uri := fmt.Sprintf("otpauth://totp/WebTerm:%s?secret=%s&issuer=WebTerm&algorithm=SHA1&digits=6&period=30",
 		url.PathEscape(a.user.Username), text)
 	png, err := qrcode.Encode(uri, qrcode.Medium, 220)
 	if err != nil {

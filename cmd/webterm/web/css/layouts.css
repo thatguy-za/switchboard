@@ -3,8 +3,6 @@
 /* ---------- sign in and setup ---------- */
 .auth { min-height: 100dvh; display: grid; place-items: center; padding: var(--s-12); }
 .auth-box { width: min(var(--w-auth), 100%); display: grid; gap: var(--s-11); animation: pop var(--dur-slow) var(--ease-out); }
-.wordmark { display: flex; align-items: center; gap: var(--s-5); font-size: var(--fs-lg); font-weight: var(--fw-semibold); letter-spacing: var(--tracking-snug); }
-.wordmark .ic { width: var(--icon-xl); height: var(--icon-xl); color: var(--text); stroke-width: 1.6; }
 .auth-box .sub { color: var(--text-2); margin-top: var(--s-3); }
 .auth-box form { display: grid; gap: var(--s-7); }
 .auth-foot { display: flex; justify-content: space-between; align-items: center; font-size: var(--fs-xs); color: var(--text-2); }
@@ -13,8 +11,9 @@
 .shell { display: flex; height: 100dvh; }
 .side { width: var(--w-side); flex: none; display: flex; flex-direction: column; background: var(--surface-side); border-right: 1px solid var(--line); min-height: 0; }
 .side-head { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-7) var(--s-6) var(--s-2) var(--s-8); }
-.side-head .wordmark { flex: 1; font-size: var(--fs-md); }
-.side-head .wordmark .ic { width: var(--icon-lg); height: var(--icon-lg); }
+.side-head .logo { margin-right: auto; font-size: var(--fs-2xl); }
+.topbar .logo { font-size: var(--fs-2xl); }
+.auth-box .logo, .welcome-in .logo { font-size: var(--fs-3xl); }
 .find { display: flex; align-items: center; gap: var(--s-4); height: var(--h-field); margin: var(--s-5) var(--s-6) var(--s-4); padding: 0 var(--s-6); background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--r-md); color: var(--text-3); width: auto; justify-content: flex-start; font-weight: var(--fw-regular); }
 .find:hover { border-color: var(--line-strong); background: var(--surface-raised); }
 .find .grow { text-align: left; }

@@ -9,8 +9,8 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"github.com/thatguy-za/switchboard/internal/crypto"
-	"github.com/thatguy-za/switchboard/internal/store"
+	"github.com/thatguy-za/webterm/internal/crypto"
+	"github.com/thatguy-za/webterm/internal/store"
 )
 
 const pushTimeout = 45 * time.Second
@@ -19,9 +19,9 @@ const pushTimeout = 45 * time.Second
 // here-document, so nothing in it is interpreted by the shell.
 const pushScript = `set -e
 umask 077
-read -r KEY <<'SWITCHBOARD_KEY_EOF'
+read -r KEY <<'WEBTERM_KEY_EOF'
 __KEY__
-SWITCHBOARD_KEY_EOF
+WEBTERM_KEY_EOF
 B64=$(printf '%s' "$KEY" | cut -d' ' -f2)
 [ -n "$B64" ]
 mkdir -p "$HOME/.ssh"
@@ -82,7 +82,7 @@ func (s *Server) pushKey(ctx context.Context, a *authed, ident *store.Identity, 
 		return pushError("unsupported", "Keys can only be pushed to SSH hosts.")
 	}
 	line := strings.TrimSpace(ident.PublicKey)
-	if line == "" || strings.ContainsAny(line, "\r\n") || strings.Contains(line, "SWITCHBOARD_KEY_EOF") {
+	if line == "" || strings.ContainsAny(line, "\r\n") || strings.Contains(line, "WEBTERM_KEY_EOF") {
 		return pushError("error", "This identity's public key can't be pushed.")
 	}
 
@@ -170,7 +170,7 @@ func classifyScriptFailure(out string, err error) pushResult {
 	switch {
 	case strings.Contains(low, "permission denied"), strings.Contains(low, "read-only file system"),
 		strings.Contains(low, "operation not permitted"), strings.Contains(low, "no space left"):
-		return pushError("permission_denied", "Switchboard could not write ~/.ssh/authorized_keys on this host. Check its permissions and free disk space.")
+		return pushError("permission_denied", "WebTerm could not write ~/.ssh/authorized_keys on this host. Check its permissions and free disk space.")
 	case strings.Contains(low, "not found"), strings.Contains(low, "not recognized"),
 		errors.As(err, &exit) && exit.ExitStatus() == 127:
 		return pushError("unsupported", "This host doesn't look like it runs a POSIX shell, so keys can't be pushed to it automatically.")

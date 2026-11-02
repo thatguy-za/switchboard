@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/thatguy-za/switchboard/internal/server"
+	"github.com/thatguy-za/webterm/internal/server"
 )
 
 //go:embed web
@@ -36,7 +36,7 @@ func main() {
 	healthcheck := flag.Bool("healthcheck", false, "probe /healthz and exit")
 	flag.Parse()
 
-	addr := ":" + env("SWITCHBOARD_PORT", "3000")
+	addr := ":" + env("WEBTERM_PORT", "3000")
 
 	if *healthcheck {
 		c := http.Client{Timeout: 3 * time.Second}
@@ -47,46 +47,46 @@ func main() {
 		return
 	}
 
-	timeout, err := time.ParseDuration(env("SWITCHBOARD_SESSION_TIMEOUT", "30m"))
+	timeout, err := time.ParseDuration(env("WEBTERM_SESSION_TIMEOUT", "30m"))
 	if err != nil {
-		log.Fatalf("SWITCHBOARD_SESSION_TIMEOUT: %v", err)
+		log.Fatalf("WEBTERM_SESSION_TIMEOUT: %v", err)
 	}
 	web, err := fs.Sub(webFS, "web")
 	if err != nil {
 		log.Fatal(err)
 	}
-	port, err := strconv.Atoi(env("SWITCHBOARD_PORT", "3000"))
+	port, err := strconv.Atoi(env("WEBTERM_PORT", "3000"))
 	if err != nil {
-		log.Fatalf("SWITCHBOARD_PORT: %v", err)
+		log.Fatalf("WEBTERM_PORT: %v", err)
 	}
-	maxRDP, err := strconv.Atoi(env("SWITCHBOARD_MAX_RDP", "10"))
+	maxRDP, err := strconv.Atoi(env("WEBTERM_MAX_RDP", "10"))
 	if err != nil || maxRDP < 1 {
-		log.Fatal("SWITCHBOARD_MAX_RDP must be a positive number")
+		log.Fatal("WEBTERM_MAX_RDP must be a positive number")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	var children sync.WaitGroup
 
-	// RDP goes through guacd. Unless SWITCHBOARD_GUACD points at one elsewhere, run the copy
+	// RDP goes through guacd. Unless WEBTERM_GUACD points at one elsewhere, run the copy
 	// that ships in the image, reachable only from inside this container.
-	guacd := os.Getenv("SWITCHBOARD_GUACD")
+	guacd := os.Getenv("WEBTERM_GUACD")
 	if guacd == "" {
 		guacd = "127.0.0.1:4822"
 		host, gport, _ := net.SplitHostPort(guacd)
 		startGuacd(ctx, host, gport, &children)
 	}
 
-	keysDir := env("SWITCHBOARD_KEYS_DIR", "/data/keys")
+	keysDir := env("WEBTERM_KEYS_DIR", "/data/keys")
 	srv, err := server.New(server.Config{
-		DataDir:        env("SWITCHBOARD_DATA_DIR", "/data"),
+		DataDir:        env("WEBTERM_DATA_DIR", "/data"),
 		KeysDir:        keysDir,
 		Port:           port,
 		SessionTimeout: timeout,
 		Guacd:          guacd,
-		TransferDir:    env("SWITCHBOARD_TRANSFER_DIR", "/tmp/switchboard-transfer"),
+		TransferDir:    env("WEBTERM_TRANSFER_DIR", "/tmp/webterm-transfer"),
 		MaxRDP:         maxRDP,
-		TrustProxy:     env("SWITCHBOARD_TRUST_PROXY", "") == "true",
+		TrustProxy:     env("WEBTERM_TRUST_PROXY", "") == "true",
 		Version:        version,
 	}, web)
 	if err != nil {
@@ -105,7 +105,7 @@ func main() {
 		defer cancel()
 		httpSrv.Shutdown(shutdown)
 	}()
-	log.Printf("switchboard listening on %s", addr)
+	log.Printf("webterm listening on %s", addr)
 	if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatal(err)
 	}
