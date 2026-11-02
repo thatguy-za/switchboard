@@ -80,7 +80,11 @@
 .settings { display: grid; grid-template-columns: var(--w-subnav) minmax(0, 1fr); gap: var(--s-16); align-items: start; }
 
 /* ---------- small screens (the breakpoint is 760px everywhere) ---------- */
+.shell.side-collapsed .side { display: none; }
+.shell.side-collapsed .topbar { display: flex; }
 @media (max-width: 760px) {
+  .side-collapse { display: none; }
+  .shell.side-collapsed .side { display: flex; }
   .topbar { display: flex; }
   .side { position: fixed; z-index: var(--z-drawer); inset: 0 auto 0 0; width: min(var(--w-drawer), 86vw); transform: translateX(-102%); transition: transform var(--dur-slow) var(--ease-out); }
   .side.open { transform: none; box-shadow: var(--shadow-lg); }

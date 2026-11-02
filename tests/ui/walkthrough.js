@@ -220,6 +220,16 @@ const dlg = () => page.locator('dialog[open]');
     await snap('26a-connect-error');
     await page.locator('.tbox [data-close]:visible').click();
   });
+  await step('sidebar collapses and comes back', async () => {
+    await page.click('.nav[data-view=identities]');
+    await page.click('#collapse');
+    if (await page.locator('#side').isVisible()) throw new Error('the sidebar is still showing');
+    await snap('26b-sidebar-collapsed');
+    await page.reload(); await page.waitForSelector('#shell');
+    if (await page.locator('#side').isVisible()) throw new Error('the sidebar did not stay collapsed after a reload');
+    await page.click('#menu');
+    if (!(await page.locator('#side').isVisible())) throw new Error('the sidebar did not come back');
+  });
   await step('light theme', async () => {
     await nav('appearance');
     await page.click('.seg button[data-theme=light]');

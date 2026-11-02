@@ -392,7 +392,7 @@ function buildShell() {
     <div class="shell" id="shell">
       <a class="skip" href="#main" id="skip">Skip to main content</a>
       <aside class="side" id="side" aria-label="Hosts">
-        <div class="side-head"><div class="wordmark">${icon('logo')}Switchboard</div></div>
+        <div class="side-head"><div class="wordmark">${icon('logo')}Switchboard</div>${iconButton('layout-sidebar', 'Collapse sidebar', 'id="collapse" aria-expanded="true"', 'side-collapse')}</div>
         <button class="find" id="find">${icon('search')}<span class="grow">Search or connect</span><span class="kbd">${IS_MAC ? '⌘K' : 'Ctrl K'}</span></button>
         <div class="side-actions">${button('Host', { kind: 'sm', icon: 'plus', attrs: 'id="add-host"' })}${button('Folder', { kind: 'sm', icon: 'folder-plus', attrs: 'id="add-folder"' })}</div>
         <div class="tree" id="tree"></div>
@@ -414,12 +414,27 @@ function buildShell() {
   shell.querySelectorAll('.nav[data-view]').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
   $('#skip', shell).addEventListener('click', ev => { ev.preventDefault(); $('#main', shell).focus(); });
   $('#out', shell).addEventListener('click', signOut);
-  $('#menu', shell).addEventListener('click', () => toggleSide(true));
+  $('#menu', shell).addEventListener('click', () => (PHONE.matches ? toggleSide(true) : setSideCollapsed(false)));
+  $('#collapse', shell).addEventListener('click', () => setSideCollapsed(true));
+  setSideCollapsed(sideCollapsed(), false);
   $('#scrim', shell).addEventListener('click', () => toggleSide(false));
   mountWorkspace(shell, $('#view-terminals', shell), $('#view-identities', shell));
   renderSettings();
   updateNav();
   showView('terminals');
+}
+
+const PHONE = window.matchMedia('(max-width: 760px)');
+const SIDE_KEY = 'sb_side_collapsed';
+function sideCollapsed() { try { return localStorage.getItem(SIDE_KEY) === '1'; } catch (e) { return false; } }
+
+// On a computer the sidebar can be tucked away; the top bar then brings it back.
+function setSideCollapsed(collapsed, focus = true) {
+  shell.classList.toggle('side-collapsed', collapsed);
+  $('#collapse', shell).setAttribute('aria-expanded', String(!collapsed));
+  try { localStorage.setItem(SIDE_KEY, collapsed ? '1' : '0'); } catch (e) { /* not saved */ }
+  if (focus) $(collapsed ? '#menu' : '#collapse', shell).focus();
+  requestAnimationFrame(() => { if (typeof fitActive === 'function') fitActive(); });
 }
 
 function toggleSide(open) {
