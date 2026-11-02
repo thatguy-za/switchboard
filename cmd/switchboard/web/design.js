@@ -83,6 +83,8 @@ const COMPONENTS = [
       <label>Type<select><option>SSH</option><option>Desktop (RDP)</option></select></label>
       <label>Private key<textarea rows="3" class="mono">-----BEGIN OPENSSH PRIVATE KEY-----</textarea></label>
       <label>Files<input type="file"></label><p class="err">That password is not long enough.</p></div>` },
+  { id: 'command-chip', name: 'Command button', description: 'A saved command in the bar under a terminal. Click inserts it, Shift-click runs it.',
+    render: () => `<div class="stage"><button type="button" class="cmd">Restart nginx</button><button type="button" class="cmd">Update packages</button><button type="button" class="cmd">Disk usage</button></div>` },
   { id: 'skip-link', name: 'Skip link', description: 'The first tab stop. Hidden until it has focus, then jumps past the sidebar to the page.',
     render: () => `<div class="stage"><a class="skip show" href="#c-skip-link">Skip to main content</a></div>` },
   { id: 'password-field', name: 'Password field', description: 'A password input with an eye button that shows what is typed.',

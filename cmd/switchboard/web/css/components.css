@@ -36,6 +36,10 @@ button.link:hover { text-decoration: underline; background: none; }
 .skip:focus, .skip.show { transform: none; }
 .skip.show { position: static; display: inline-block; }
 
+/* @component command-chip */
+button.cmd { flex: none; height: var(--h-control-sm); padding: 0 var(--s-5); font-size: var(--fs-xs); white-space: nowrap; }
+code.block { display: block; margin-top: var(--s-5); padding: var(--s-4) var(--s-5); background: var(--surface-field); border: 1px solid var(--line); border-radius: var(--r-sm); white-space: pre-wrap; word-break: break-all; }
+
 /* @component icon-button */
 button.icon { width: var(--h-icon-btn); height: var(--h-icon-btn); padding: 0; border-color: transparent; background: transparent; color: var(--text-3); }
 button.icon:hover { background: var(--surface-selected); color: var(--text); }

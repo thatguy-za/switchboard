@@ -65,6 +65,11 @@
 .welcome .hint { display: flex; align-items: center; gap: var(--s-3); color: var(--text-3); }
 .welcome .sub { margin-top: var(--s-2); }
 
+/* saved commands bar */
+.cmdbar { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); background: var(--surface-side); border-top: 1px solid var(--line); flex: none; }
+.cmdbar[hidden] { display: none; }
+.cmd-chips { display: flex; align-items: center; gap: var(--s-3); flex: 1; min-width: 0; overflow-x: auto; padding: var(--s-1) 0; }
+
 /* touch key bar */
 .keybar { display: none; gap: var(--s-3); padding: var(--s-4); background: var(--surface-side); border-top: 1px solid var(--line); flex: none; }
 .keybar button { flex: 1; height: var(--h-key); padding: 0; }

@@ -65,6 +65,14 @@ Each terminal tab can be split right or down into up to six panes, each its own 
 
 xterm.js 5.5.0, its fit addon and guacamole-common-js 1.5.0 (Apache-2.0, license kept beside it) are vendored in `cmd/switchboard/web/vendor`, so the page loads nothing from a CDN.
 
+## Saved commands
+
+Under every SSH terminal is a bar of your saved commands. Click one to type it at the cursor, or
+Shift-click to run it; a command with several lines always asks first. Use **+** to add one and the pencil
+to edit, reorder or delete them, and the arrow to hide the bar (bring it back from the search, Ctrl K).
+`{{host}}` and `{{user}}` in a command are replaced with the host's address and username. Commands belong
+to your account and are stored encrypted in your vault. Remote desktops don't show the bar.
+
 ## Accessibility
 
 Switchboard aims for WCAG 2.2 level AA: every control works from the keyboard, text meets contrast

@@ -7,7 +7,7 @@ const DEFAULT_FONT = '"JetBrains Mono Variable", "JetBrains Mono", ui-monospace,
 // A workspace tab holds a tree of panes; each pane is one session (a terminal or a remote desktop).
 //   node = { kind: 'leaf', sess } | { kind: 'split', dir: 'row' | 'col', ratio, a: node, b: node }
 const WS = {
-  folders: [], hosts: [], identities: [], tabs: [], active: null, ctrl: false,
+  folders: [], hosts: [], identities: [], commands: [], tabs: [], active: null, ctrl: false,
   term: null, ids: null, keyHandler: null, nextTab: 1, liveKey: '',
 };
 const MAX_PANES = 6;
@@ -383,6 +383,7 @@ function openPalette(opts = {}) {
     { label: 'New identity', icon: 'key', run: () => { showView('identities'); newIdentityDialog(); } },
     { label: 'Identities', icon: 'key', hint: 'Page', run: () => showView('identities') },
     { label: 'Settings', icon: 'settings', hint: 'Page', run: () => showView('settings') },
+    ...(cmdBarHidden() ? [{ label: 'Show saved commands bar', icon: 'terminal-2', run: () => setCmdBarHidden(false) }] : []),
     { label: 'Switch theme', icon: themeEffective() === 'dark' ? 'sun' : 'moon', run: () => setThemeChoice(themeEffective() === 'dark' ? 'light' : 'dark') },
     { label: 'Sign out', icon: 'logout', run: signOut },
   ];
@@ -895,6 +896,137 @@ function renderTabs() {
       ${iconButton('x', `Close ${all[0].host.name}`, `data-close="${t.id}"`, 'tab-x')}
     </div>`;
   }).join('') + iconButton('plus', 'Open a host', 'data-new', 'plus');
+  renderCmdBar();
+}
+
+/* ---------- saved commands ----------
+   A bar of buttons under SSH terminals. Click inserts the command, Shift-click runs it. The text
+   is stored encrypted for the signed-in user; {{host}} and {{user}} are filled in from the host. */
+
+const CMDBAR_KEY = 'sb_cmdbar_hidden';
+function cmdBarHidden() { try { return localStorage.getItem(CMDBAR_KEY) === '1'; } catch (e) { return false; } }
+function setCmdBarHidden(hidden) {
+  try { localStorage.setItem(CMDBAR_KEY, hidden ? '1' : '0'); } catch (e) { /* not saved */ }
+  renderCmdBar();
+  fitActive();
+}
+
+async function loadCommands() {
+  WS.commands = await api('GET', '/commands');
+  renderCmdBar();
+}
+
+function fillCommand(body, host) {
+  return body.replaceAll('{{host}}', host.address).replaceAll('{{user}}', host.username || '');
+}
+
+function renderCmdBar() {
+  const bar = WS.term && $q(WS.term, '#cmdbar');
+  if (!bar) return;
+  const sess = WS.active && WS.active.active;
+  const show = !!sess && sess.kind !== 'rdp' && !cmdBarHidden();
+  const wasHidden = bar.hidden;
+  bar.hidden = !show;
+  if (!show) { if (!wasHidden) fitActive(); return; }
+  const sig = JSON.stringify(WS.commands);
+  if (!wasHidden && bar.dataset.sig === sig) return; // nothing changed: leave focus where it is
+  bar.dataset.sig = sig;
+  const chips = WS.commands.length
+    ? WS.commands.map(c => `<button type="button" class="cmd" data-cmd="${esc(c.id)}" title="${esc(c.body)}">${esc(c.name)}</button>`).join('')
+    : '<span class="small faint">Save the commands you type often, and run them from here.</span>';
+  const keep = bar.querySelector('.cmd-chips');
+  const scroll = keep ? keep.scrollLeft : 0;
+  bar.innerHTML = `${icon('terminal-2', 'faint')}<div class="cmd-chips">${chips}</div>
+    ${iconButton('plus', 'Add a command', 'data-cmd-add')}${WS.commands.length ? iconButton('pencil', 'Manage commands', 'data-cmd-manage') : ''}${iconButton('chevron-down', 'Hide the commands bar', 'data-cmd-hide')}`;
+  bar.querySelector('.cmd-chips').scrollLeft = scroll;
+  if (wasHidden) fitActive();
+}
+
+function bindCommandBar() {
+  const bar = $q(WS.term, '#cmdbar');
+  // Keep focus in the terminal while a button is pressed with the mouse.
+  bar.addEventListener('mousedown', ev => { if (ev.target.closest('[data-cmd]')) ev.preventDefault(); });
+  bar.addEventListener('click', ev => {
+    const chip = ev.target.closest('[data-cmd]');
+    if (chip) return useCommand(WS.commands.find(c => c.id === chip.dataset.cmd), ev.shiftKey);
+    if (ev.target.closest('[data-cmd-add]')) return commandDialog(null);
+    if (ev.target.closest('[data-cmd-manage]')) return manageCommands();
+    if (ev.target.closest('[data-cmd-hide]')) {
+      setCmdBarHidden(true);
+      toast('Commands bar hidden. Bring it back from the search (Ctrl K).');
+    }
+  });
+}
+
+// Puts the command at the cursor, and presses Enter too when run is set. Several lines always ask first.
+function useCommand(cmd, run) {
+  const sess = WS.active && WS.active.active;
+  if (!cmd || !sess || sess.kind === 'rdp') return;
+  if (sess.state !== 'live') { toast('This session is not connected.', 'err'); return; }
+  const text = fillCommand(cmd.body, sess.host);
+  const go = () => {
+    sess.term.paste(text);
+    if (run) sendRaw(sess, '\r');
+    sess.term.focus();
+  };
+  if (!text.includes('\n')) return go();
+  confirmDialog(`${run ? 'Run' : 'Insert'} "${cmd.name}"?`, `This has ${text.split('\n').length} lines, and each one may run as soon as it is inserted.<code class="block">${esc(text)}</code>`,
+    run ? 'Run' : 'Insert', go, false);
+}
+
+function commandDialog(cmd, done) {
+  dialog(cmd ? 'Edit command' : 'New command', `
+    <label>Name<input type="text" name="name" maxlength="60" value="${esc(cmd ? cmd.name : '')}" autocomplete="off" required></label>
+    <label>Command<textarea name="body" rows="4" class="mono" spellcheck="false" autocapitalize="off" autocomplete="off" required>${esc(cmd ? cmd.body : '')}</textarea></label>`, {
+    description: 'Stored encrypted in your vault. <code>{{host}}</code> and <code>{{user}}</code> are replaced with the host address and username.',
+    onSubmit: async fd => {
+      const body = { name: fd.get('name'), body: fd.get('body') };
+      if (cmd) await api('PUT', '/commands/' + cmd.id, body); else await api('POST', '/commands', body);
+      await loadCommands();
+      if (done) done();
+    },
+  });
+}
+
+// Edit, reorder and delete, with buttons rather than dragging.
+function manageCommands() {
+  const d = dialog('Saved commands', '', { extra: button('New command', { icon: 'plus', attrs: 'type="button" data-new-cmd' }) });
+  const draw = () => {
+    const list = WS.commands;
+    d.querySelector('.dlg-body').innerHTML = `<p class="muted">Shift-click a button to run it instead of inserting it.</p>` + (list.length ? panel(list.map((c, i) => itemRow({
+      title: esc(c.name),
+      meta: `<div class="meta mono">${esc(c.body.split('\n')[0])}${c.body.includes('\n') ? ' …' : ''}</div>`,
+      actions: `${iconButton('arrow-up', `Move ${c.name} earlier`, `data-up="${i}" ${i === 0 ? 'disabled' : ''}`)}
+        ${iconButton('arrow-up', `Move ${c.name} later`, `data-down="${i}" ${i === list.length - 1 ? 'disabled' : ''}`, 'rot-180')}
+        ${iconButton('pencil', `Edit ${c.name}`, `data-edit="${i}"`)}
+        ${iconButton('trash', `Delete ${c.name}`, `data-del="${i}"`)}`,
+    })).join('')) : '<p class="muted">No commands yet.</p>');
+  };
+  const reorder = async (i, j) => {
+    const ids = WS.commands.map(c => c.id);
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    await api('POST', '/commands/order', { ids });
+    await loadCommands();
+    draw();
+  };
+  d.addEventListener('click', async ev => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    try {
+      if (b.dataset.up !== undefined) await reorder(Number(b.dataset.up), Number(b.dataset.up) - 1);
+      else if (b.dataset.down !== undefined) await reorder(Number(b.dataset.down), Number(b.dataset.down) + 1);
+      else if (b.dataset.edit !== undefined) commandDialog(WS.commands[Number(b.dataset.edit)], draw);
+      else if (b.dataset.del !== undefined) {
+        const c = WS.commands[Number(b.dataset.del)];
+        confirmDialog(`Delete "${c.name}"?`, 'It is removed from your saved commands.', 'Delete command', async () => {
+          await api('DELETE', '/commands/' + c.id);
+          await loadCommands();
+          draw();
+        });
+      } else if ('newCmd' in b.dataset) commandDialog(null, draw);
+    } catch (e) { toast(e.message, 'err'); }
+  });
+  draw();
 }
 
 /* ---------- identities ---------- */
@@ -1075,6 +1207,7 @@ function mountWorkspace(shellEl, termRoot, idRoot) {
   termRoot.innerHTML = `
     <nav class="tabs" id="tabs" aria-label="Open sessions" hidden></nav>
     <div class="panes" id="panes"><div class="welcome" id="empty"></div></div>
+    <div class="cmdbar" id="cmdbar" role="toolbar" aria-label="Saved commands" hidden></div>
     <div class="keybar" id="keybar" aria-label="Terminal keys">
       <button type="button" data-key="esc">Esc</button><button type="button" data-key="ctrl" aria-pressed="false">Ctrl</button><button type="button" data-key="tab">Tab</button>
       <button type="button" data-key="left" aria-label="Left">${icon('arrow-up', 'rot-270')}</button><button type="button" data-key="down" aria-label="Down">${icon('arrow-up', 'rot-180')}</button>
@@ -1082,6 +1215,7 @@ function mountWorkspace(shellEl, termRoot, idRoot) {
     </div>`;
   bindTree();
   bindIdentities();
+  bindCommandBar();
   document.getElementById('add-host').addEventListener('click', () => hostDialog(null));
   document.getElementById('add-folder').addEventListener('click', () => folderDialog(null));
   document.getElementById('find').addEventListener('click', () => openPalette());
@@ -1119,6 +1253,7 @@ function mountWorkspace(shellEl, termRoot, idRoot) {
 
   renderWelcome();
   loadIdentities().then(loadHosts).catch(() => {});
+  loadCommands().catch(() => {});
 }
 
 function destroyWorkspace() {

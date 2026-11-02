@@ -52,6 +52,14 @@ const nav = async tab => { await page.click('.nav[data-view=settings]'); await p
     await page.click('.row.host:has-text("pi-hole")'); await page.waitForSelector('button:has-text("Trust and connect")'); await check('host-key-prompt');
     await page.click('button:has-text("Trust and connect")'); await page.waitForSelector('.tab.on .dot.live', { timeout: 15000 }); await check('terminal');
   });
+  await step('commands', async () => {
+    await page.click('[data-cmd-add]');
+    await dlg().locator('input[name=name]').fill('Say hello'); await dlg().locator('textarea[name=body]').fill('echo hello');
+    await check('command-dialog');
+    await dlg().locator('button.primary').click(); await page.waitForSelector('dialog[open]', { state: 'detached' });
+    await check('terminal-with-commands');
+    await page.click('[data-cmd-manage]'); await check('commands-manage'); await close();
+  });
   await step('palette', async () => { await page.click('#find'); await check('palette'); await page.keyboard.press('Escape'); });
   await step('identities', async () => { await page.click('.nav[data-view=identities]'); await check('identities'); await page.click('#id-new'); await check('identity-dialog'); await close(); });
   for (const t of ['account', 'security', 'appearance', 'tailscale', 'users', 'server']) await step(t, async () => { await nav(t); await check('settings-' + t); });
