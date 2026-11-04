@@ -64,6 +64,14 @@
 .welcome .hint { display: flex; align-items: center; gap: var(--s-3); color: var(--text-3); }
 .welcome .sub { margin-top: var(--s-2); }
 
+/* drag to reorder */
+.tree, .tabs { position: relative; }
+.sorting, .sorting * { cursor: grabbing !important; user-select: none; }
+.sort-lifted { opacity: .45; }
+.drop-line { position: absolute; z-index: var(--z-popover); left: var(--s-4); right: var(--s-4); top: var(--at); height: var(--s-1); border-radius: var(--r-full); background: var(--acc); pointer-events: none; }
+.drop-line[hidden] { display: none; }
+.drop-line.h { left: var(--at); right: auto; top: var(--s-2); bottom: var(--s-2); width: var(--s-1); height: auto; }
+
 /* saved commands bar */
 .cmdbar { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); background: var(--surface-side); border-top: 1px solid var(--line); flex: none; }
 .cmdbar[hidden] { display: none; }

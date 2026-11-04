@@ -45,7 +45,7 @@ func found(err error) error {
 /* folders */
 
 func (s *Store) ListFolders(userID string) ([]*Folder, error) {
-	rows, err := s.db.Query(`SELECT id, user_id, COALESCE(parent_id, ''), name FROM folders WHERE user_id=? ORDER BY name`, userID)
+	rows, err := s.db.Query(`SELECT id, user_id, COALESCE(parent_id, ''), name FROM folders WHERE user_id=? ORDER BY COALESCE(parent_id, ''), position, name`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -69,14 +69,19 @@ func (s *Store) GetFolder(id, userID string) (*Folder, error) {
 }
 
 func (s *Store) CreateFolder(f *Folder) error {
-	_, err := s.db.Exec(`INSERT INTO folders (id, user_id, parent_id, name) VALUES (?,?,?,?)`,
-		f.ID, f.UserID, nullable(f.ParentID), f.Name)
+	_, err := s.db.Exec(`INSERT INTO folders (id, user_id, parent_id, name, position) VALUES (?,?,?,?,
+		(SELECT COALESCE(MAX(position) + 1, 0) FROM folders WHERE user_id=? AND COALESCE(parent_id, '')=?))`,
+		f.ID, f.UserID, nullable(f.ParentID), f.Name, f.UserID, f.ParentID)
 	return err
 }
 
 func (s *Store) UpdateFolder(f *Folder) error {
-	_, err := s.db.Exec(`UPDATE folders SET parent_id=?, name=? WHERE id=? AND user_id=?`,
-		nullable(f.ParentID), f.Name, f.ID, f.UserID)
+	// A folder moved to another parent goes to the end of it.
+	_, err := s.db.Exec(`UPDATE folders SET
+		position = CASE WHEN COALESCE(parent_id, '') = ? THEN position
+			ELSE (SELECT COALESCE(MAX(position) + 1, 0) FROM folders f WHERE f.user_id=? AND COALESCE(f.parent_id, '')=?) END,
+		parent_id=?, name=? WHERE id=? AND user_id=?`,
+		f.ParentID, f.UserID, f.ParentID, nullable(f.ParentID), f.Name, f.ID, f.UserID)
 	return err
 }
 
@@ -104,7 +109,7 @@ func scanHost(r scanner) (*Host, error) {
 }
 
 func (s *Store) ListHosts(userID string) ([]*Host, error) {
-	rows, err := s.db.Query(`SELECT `+hostCols+` FROM hosts WHERE user_id=? ORDER BY name`, userID)
+	rows, err := s.db.Query(`SELECT `+hostCols+` FROM hosts WHERE user_id=? ORDER BY COALESCE(folder_id, ''), position, name`, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -127,15 +132,22 @@ func (s *Store) GetHost(id, userID string) (*Host, error) {
 func (s *Store) CreateHost(h *Host) error {
 	h.CreatedAt = time.Now().Unix()
 	_, err := s.db.Exec(`INSERT INTO hosts (id, user_id, folder_id, name, address, port, username, auth,
-		identity_id, password_blob, protocol, theme, rdp_security, rdp_ignore_cert, rdp_options, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		identity_id, password_blob, protocol, theme, rdp_security, rdp_ignore_cert, rdp_options, created_at, position) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+		(SELECT COALESCE(MAX(position) + 1, 0) FROM hosts WHERE user_id=? AND COALESCE(folder_id, '')=?))`,
 		h.ID, h.UserID, nullable(h.FolderID), h.Name, h.Address, h.Port, h.Username, h.Auth,
-		nullable(h.IdentityID), h.PasswordBlob, h.Protocol, h.Theme, h.RDPSecurity, h.RDPIgnoreCert, h.RDPOptions, h.CreatedAt)
+		nullable(h.IdentityID), h.PasswordBlob, h.Protocol, h.Theme, h.RDPSecurity, h.RDPIgnoreCert, h.RDPOptions, h.CreatedAt,
+		h.UserID, h.FolderID)
 	return err
 }
 
 func (s *Store) UpdateHost(h *Host) error {
-	_, err := s.db.Exec(`UPDATE hosts SET folder_id=?, name=?, address=?, port=?, username=?, auth=?,
+	// A host moved to another folder goes to the end of it.
+	_, err := s.db.Exec(`UPDATE hosts SET
+		position = CASE WHEN COALESCE(folder_id, '') = ? THEN position
+			ELSE (SELECT COALESCE(MAX(position) + 1, 0) FROM hosts x WHERE x.user_id=? AND COALESCE(x.folder_id, '')=?) END,
+		folder_id=?, name=?, address=?, port=?, username=?, auth=?,
 		identity_id=?, password_blob=?, theme=?, protocol=?, rdp_security=?, rdp_ignore_cert=?, rdp_options=? WHERE id=? AND user_id=?`,
+		h.FolderID, h.UserID, h.FolderID,
 		nullable(h.FolderID), h.Name, h.Address, h.Port, h.Username, h.Auth,
 		nullable(h.IdentityID), h.PasswordBlob, h.Theme, h.Protocol, h.RDPSecurity, h.RDPIgnoreCert, h.RDPOptions, h.ID, h.UserID)
 	return err
@@ -248,4 +260,28 @@ func (s *Store) DeploymentsByIdentity(userID string) (map[string][]string, error
 		out[identity] = append(out[identity], host)
 	}
 	return out, rows.Err()
+}
+
+// ReorderHosts and ReorderFolders number the user's items in the order given.
+// Ids that are not the user's are ignored.
+func (s *Store) ReorderHosts(userID string, ids []string) error {
+	return s.reorder("hosts", userID, ids)
+}
+
+func (s *Store) ReorderFolders(userID string, ids []string) error {
+	return s.reorder("folders", userID, ids)
+}
+
+func (s *Store) reorder(table, userID string, ids []string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for i, id := range ids {
+		if _, err := tx.Exec(`UPDATE `+table+` SET position=? WHERE id=? AND user_id=?`, i, id, userID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }

@@ -60,7 +60,7 @@
   --h-key: 38px; --w-narrow-sm: 76px; --w-narrow-wide: 150px; --w-tab-max: 220px; --w-tab-label-max: 170px; --w-field-min: 140px; --w-head-min: 220px;
   --w-swatch-min: 150px; --w-icon-cell: 112px; --w-shadow-box: 120px; --w-scale-label: 90px; --w-scale-value: 60px;
   --h-stage: 80px; --h-stage-tall: 220px;
-  --hit: 4px;
+  --hit: 4px; --at: 0px; /* where the drag-and-drop marker sits; set while dragging */
   --logo-gap: .14em; --logo-cursor-w: .5em; --logo-cursor-h: .86em; --logo-cursor-r: .07em; --logo-tracking: -.04em; --logo-descent: .12em; --dur-blink: 1060ms;
 }
 

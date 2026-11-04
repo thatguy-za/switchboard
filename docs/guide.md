@@ -10,6 +10,18 @@ server's key later changes, the tab blocks with a warning until you explicitly a
 Dropped connections reconnect automatically. Credentials are decrypted on the server at connect
 time and are never sent to the browser. Private keys leave only through an explicit, password-confirmed export.
 
+### Ordering hosts, folders and tabs
+
+Drag a host or folder in the sidebar to put it where you want; a folder takes what is inside it along, and
+the order is saved to your account. New hosts go to the end of their folder. Drag tabs the same way. On a touch
+screen, press and hold for a moment before dragging, so scrolling still works. Without dragging, use **Alt** with
+the arrow keys on a focused host, folder or tab, or the *Move up* and *Move down* buttons in a host's or folder's edit
+dialog. Tabs have no button, only the keys, since they only exist for the current visit.
+
+When a shell ends by itself (you type `exit`, or the host closes it) there is no popup: the terminal keeps its
+output and says so, and Enter starts a new session. A connection that drops by accident still reconnects, and
+tells you if it can't.
+
 ### Pushing keys
 
 On the Identities tab, **Push to hosts…** puts an identity's public key on any number of hosts
@@ -134,7 +146,8 @@ second volume and point `WEBTERM_KEYS_DIR` at it. To restore an instance, restor
 WebTerm aims for WCAG 2.2 level AA: every control works from the keyboard, text meets contrast
 minimums in both themes, and dialogs and prompts are announced by screen readers. Inside a terminal or
 remote desktop every key goes to the remote side, so press **Shift+Escape** to move focus back to the
-pane's buttons. `tests/ui/a11y.sh` runs an automated axe-core check of every screen. It has not been
+pane's buttons. Hosts, folders and tabs can be reordered with Alt and the arrow keys, and hosts and folders also
+have Move up and Move down buttons, but moving a tab with a pointer needs dragging. `tests/ui/a11y.sh` runs an automated axe-core check of every screen. It has not been
 tested with real screen readers.
 
 ## Upgrading from Switchboard

@@ -138,6 +138,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/folders", s.auth(true, s.handleCreateFolder))
 	mux.HandleFunc("PUT /api/folders/{id}", s.auth(true, s.handleUpdateFolder))
 	mux.HandleFunc("DELETE /api/folders/{id}", s.auth(true, s.handleDeleteFolder))
+	mux.HandleFunc("POST /api/hosts/order", s.auth(true, s.handleOrderHosts))
+	mux.HandleFunc("POST /api/folders/order", s.auth(true, s.handleOrderFolders))
 	mux.HandleFunc("GET /api/commands", s.auth(true, s.handleListCommands))
 	mux.HandleFunc("POST /api/commands", s.auth(true, s.handleCreateCommand))
 	mux.HandleFunc("POST /api/commands/order", s.auth(true, s.handleOrderCommands))

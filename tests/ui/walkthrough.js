@@ -129,6 +129,16 @@ const dlg = () => page.locator('dialog[open]');
     await page.locator('.pal-row:has-text("Show saved commands bar")').click();
     await page.waitForSelector('#cmdbar:visible');
   });
+  await step('a finished session is not an error', async () => {
+    await page.click('.pane:visible .term');
+    await page.keyboard.type('exit'); await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.querySelector('.pane .xterm-rows').innerText.includes('session ended'), null, { timeout: 8000 });
+    if (await page.locator('.tbox:visible').count()) throw new Error('a popup appeared when the shell exited normally');
+    await snap('06e-session-ended');
+    await page.keyboard.press('Enter');
+    await page.waitForSelector('.tab.on .dot.live', { timeout: 15000 });
+    await page.waitForFunction(() => document.querySelector('.pane .xterm-rows').innerText.includes('reconnected'), null, { timeout: 8000 });
+  });
   await step('palette', async () => {
     await page.click('#find');
     await page.waitForSelector('dialog.palette[open]');
@@ -149,6 +159,55 @@ const dlg = () => page.locator('dialog[open]');
     await page.waitForSelector('.cell + .divider');
     await page.waitForTimeout(2500);
     await snap('12-split');
+  });
+  await step('tabs, hosts and folders reorder by dragging', async () => {
+    const drag = async (from, toX, toY) => {
+      await page.mouse.move(from.x, from.y); await page.mouse.down();
+      await page.mouse.move(toX, toY, { steps: 10 }); await page.mouse.up();
+    };
+    // Tabs: drag the first past the second, then move it back with Alt+arrow.
+    const tabIds = () => page.evaluate(() => WS.tabs.map(t => t.id));
+    if ((await tabIds()).length < 2) { await page.click('.row.host:has-text("nas") .row-main'); await page.waitForFunction(() => WS.tabs.length > 1); }
+    const before = await tabIds();
+    const t0 = await page.locator('#tabs .tab').nth(0).boundingBox(), t1 = await page.locator('#tabs .tab').nth(1).boundingBox();
+    await drag({ x: t0.x + t0.width / 2 - 14, y: t0.y + t0.height / 2 }, t1.x + t1.width * 0.85, t1.y + t1.height / 2);
+    if ((await tabIds())[0] !== before[1]) throw new Error('dragging a tab did not reorder the tabs');
+    await page.locator('#tabs .tab-main').nth(0).focus();
+    await page.keyboard.press('Alt+ArrowRight');
+    if ((await tabIds())[0] !== before[0]) throw new Error('Alt+Right did not move the tab');
+
+    // Hosts: drag nas above pi-hole, and check it is still there after a reload.
+    const hostNames = () => page.locator('.tree .row.host .name').allInnerTexts();
+    const folderRows = () => page.locator('.tree .row.folder .name').allInnerTexts();
+    const nas = await page.locator('.row.host:has-text("nas") .row-main').boundingBox();
+    const pi = await page.locator('.row.host:has-text("pi-hole") .row-main').boundingBox();
+    const first = (await hostNames()).indexOf('nas') < (await hostNames()).indexOf('pi-hole') ? 'nas' : 'pi-hole';
+    if (first === 'nas') await drag({ x: pi.x + 60, y: pi.y + pi.height / 2 }, nas.x + 60, nas.y + 2);
+    else await drag({ x: nas.x + 60, y: nas.y + nas.height / 2 }, pi.x + 60, pi.y + 2);
+    await page.waitForFunction(was => { const n = [...document.querySelectorAll('.tree .row.host .name')].map(x => x.textContent); return (n.indexOf('nas') < n.indexOf('pi-hole')) !== was; },
+      first === 'nas', { timeout: 5000 }).catch(() => { throw new Error('dragging a host did not reorder it'); });
+    const afterDrag = await hostNames();
+    await page.reload(); await page.waitForSelector('#shell');
+    const saved = await hostNames();
+    if (JSON.stringify(saved) !== JSON.stringify(afterDrag)) throw new Error('the host order was not kept: ' + saved.join(',') + ' vs ' + afterDrag.join(','));
+
+    // Folders: add a second one, and drag it above the first. It keeps its place after a reload.
+    await page.evaluate(async () => { await api('POST', '/folders', { name: 'Zeta' }); await loadHosts(); });
+    const home = await page.locator('.row.folder:has-text("Home lab") .row-main').boundingBox();
+    const zeta = await page.locator('.row.folder:has-text("Zeta") .row-main').boundingBox();
+    await drag({ x: zeta.x + 40, y: zeta.y + zeta.height / 2 }, home.x + 40, home.y + 2);
+    await page.waitForFunction(() => { const n = [...document.querySelectorAll('.tree .row.folder .name')].map(x => x.textContent); return n.indexOf('Zeta') < n.indexOf('Home lab'); },
+      null, { timeout: 5000 }).catch(() => { throw new Error('dragging a folder did not reorder it'); });
+    const folders = await folderRows();
+    await snap('06f-reordered');
+
+    // The same without dragging: the buttons in the edit dialog.
+    await page.click('.row.host:has-text("pi-hole") .kebab', { force: true });
+    const movedFrom = await hostNames();
+    const step = movedFrom.indexOf('pi-hole') < movedFrom.indexOf('nas') ? 1 : -1; // toward the other host in its folder
+    await dlg().locator(`[data-move="${step}"]`).click();
+    await page.waitForFunction(old => [...document.querySelectorAll('.tree .row.host .name')].map(n => n.textContent).join() !== old, movedFrom.join());
+    await dlg().locator('[data-cancel]').first().click();
   });
   await step('ctrl+k outside a terminal', async () => {
     await page.click('.nav[data-view=identities]');

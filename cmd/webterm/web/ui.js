@@ -68,8 +68,8 @@ const switchControl = ({ id, checked = false, disabled = false, label }) =>
 const checkField = (name, label, hint = '', attrs = '', checked = false) =>
   `<label class="check" ${attrs}><input type="checkbox" name="${esc(name)}"${checked ? ' checked' : ''}> ${label}${hint ? `<span class="small">${hint}</span>` : ''}</label>`;
 const hostRow = (h, { depth = 0, live = false, kebab = true } = {}) => `
-  <div class="row host d${Math.min(depth, 6)}">
-    <button type="button" class="row-main" data-host="${esc(h.id)}" aria-label="Open ${esc(h.name)}${live ? ' (connected)' : ''}">${icon(h.protocol === 'rdp' ? 'device-desktop' : 'terminal-2')}<span class="name">${esc(h.name)}</span>${live ? '<span class="dot live" aria-hidden="true"></span>' : ''}</button>
+  <div class="row host d${Math.min(depth, 6)}" data-sort-kind="h" data-sort-id="${esc(h.id)}" data-sort-parent="${esc(h.folder_id || '')}" data-sort-depth="${depth}">
+    <button type="button" class="row-main" data-sort="h${esc(h.id)}" data-host="${esc(h.id)}" aria-label="Open ${esc(h.name)}${live ? ' (connected)' : ''}">${icon(h.protocol === 'rdp' ? 'device-desktop' : 'terminal-2')}<span class="name">${esc(h.name)}</span>${live ? '<span class="dot live" aria-hidden="true"></span>' : ''}</button>
     ${kebab ? iconButton('dots', `Edit ${h.name}`, `data-edit-host="${esc(h.id)}"`, 'kebab') : ''}
   </div>`;
 
@@ -107,6 +107,134 @@ applyTheme();
 if (document.fonts) {
   document.fonts.load('400 14px "JetBrains Mono Variable"');
   document.fonts.load('400 13px "Inter Variable"');
+}
+
+/* ---------- drag to reorder ----------
+   Pointer-driven sorting for the tab strip and the host tree, with Alt+arrow keys as the keyboard way.
+   pick(target) says which group the thing under the pointer belongs to, as
+   { key, label, group: [{ id, els }], from } where els are the elements that move together (a folder
+   moves with the rows inside it), or null when it can't be moved. onMove(ids, picked) gets the group's
+   ids in their new order. A mouse starts dragging after a few pixels; touch needs a short press, so
+   scrolling still works. */
+
+// A polite, visually hidden message for screen readers.
+function announce(text) {
+  let box = document.getElementById('sr-live');
+  if (!box) {
+    box = el('div', 'sr-only');
+    box.id = 'sr-live';
+    box.setAttribute('role', 'status');
+    box.setAttribute('aria-live', 'polite');
+    document.body.appendChild(box);
+  }
+  box.textContent = '';
+  setTimeout(() => { box.textContent = text; }, 50);
+}
+
+function enableSort(container, { pick, onMove, horizontal = false }) {
+  const SLOP = 5, HOLD = 350, EDGE = 28;
+  const line = el('div', 'drop-line' + (horizontal ? ' h' : ''));
+  const side = horizontal ? ['left', 'right', 'clientX'] : ['top', 'bottom', 'clientY'];
+  let drag = null;
+
+  const span = els => {
+    const rects = els.map(e => e.getBoundingClientRect());
+    return [Math.min(...rects.map(r => r[side[0]])), Math.max(...rects.map(r => r[side[1]]))];
+  };
+  const order = (ids, from, to) => { const out = ids.slice(); out.splice(to, 0, out.splice(from, 1)[0]); return out; };
+
+  const begin = d => {
+    d.started = true;
+    container.classList.add('sorting');
+    d.p.group[d.p.from].els.forEach(e => e.classList.add('sort-lifted'));
+    container.appendChild(line);
+    window.addEventListener('touchmove', stopScroll, { passive: false });
+  };
+  const stopScroll = ev => ev.preventDefault();
+
+  const target = ev => {
+    const { group, from } = drag.p;
+    const pos = ev[side[2]];
+    let slot = 0; // the gap the pointer is in: 0 is before the first, group.length after the last
+    group.forEach((g, i) => { const [a, b] = span(g.els); if (pos > (a + b) / 2) slot = i + 1; });
+    drag.to = slot > from ? slot - 1 : slot;
+    const none = drag.to === from;
+    line.hidden = none;
+    if (!none) {
+      const [a, b] = slot === group.length ? [0, span(group[slot - 1].els)[1]] : [span(group[slot].els)[0], 0];
+      const at = (slot === group.length ? b : a) - container.getBoundingClientRect()[side[0]] + (horizontal ? container.scrollLeft : container.scrollTop);
+      line.style.setProperty('--at', at + 'px'); // ds-allow: the drop marker follows the pointer
+    }
+    const box = container.getBoundingClientRect();
+    if (pos < box[side[0]] + EDGE) container[horizontal ? 'scrollLeft' : 'scrollTop'] -= 12;
+    else if (pos > box[side[1]] - EDGE) container[horizontal ? 'scrollLeft' : 'scrollTop'] += 12;
+  };
+
+  const finish = apply => {
+    const d = drag;
+    drag = null;
+    clearTimeout(d.timer);
+    window.removeEventListener('pointermove', onMoveEvent);
+    window.removeEventListener('pointerup', onUp);
+    window.removeEventListener('pointercancel', onCancel);
+    window.removeEventListener('keydown', onKey, true);
+    window.removeEventListener('touchmove', stopScroll);
+    if (!d.started) return;
+    container.classList.remove('sorting');
+    d.p.group[d.p.from].els.forEach(e => e.classList.remove('sort-lifted'));
+    line.remove();
+    // The pointer-up that ends a drag must not also click what is under it.
+    const swallow = ev => { ev.stopPropagation(); ev.preventDefault(); };
+    window.addEventListener('click', swallow, { capture: true, once: true });
+    setTimeout(() => window.removeEventListener('click', swallow, true), 0);
+    if (apply && d.to !== d.p.from) {
+      const ids = order(d.p.group.map(g => g.id), d.p.from, d.to);
+      Promise.resolve(onMove(ids, d.p)).then(() => announce(`${d.p.label} moved to position ${d.to + 1} of ${ids.length}`)).catch(e => toast(e.message, 'err'));
+    }
+  };
+
+  const onMoveEvent = ev => {
+    if (!drag || ev.pointerId !== drag.id) return;
+    if (!drag.started) {
+      const far = Math.hypot(ev.clientX - drag.x, ev.clientY - drag.y);
+      if (drag.touch) { if (far > 8) finish(false); return; } // moved before the hold: it is a scroll
+      if (far < SLOP) return;
+      begin(drag);
+    }
+    target(ev);
+  };
+  const onUp = ev => { if (drag && ev.pointerId === drag.id) finish(drag.started); };
+  const onCancel = ev => { if (drag && ev.pointerId === drag.id) finish(false); };
+  const onKey = ev => { if (ev.key === 'Escape') { ev.stopPropagation(); finish(false); } };
+
+  container.addEventListener('pointerdown', ev => {
+    if (ev.button !== 0 || drag) return;
+    const p = pick(ev.target);
+    if (!p || p.group.length < 2) return;
+    drag = { p, id: ev.pointerId, x: ev.clientX, y: ev.clientY, touch: ev.pointerType === 'touch', started: false, to: p.from, timer: null };
+    if (drag.touch) drag.timer = setTimeout(() => { if (drag) begin(drag); }, HOLD);
+    window.addEventListener('pointermove', onMoveEvent);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
+    window.addEventListener('keydown', onKey, true);
+  });
+
+  // Alt plus an arrow key moves the focused item one place.
+  container.addEventListener('keydown', async ev => {
+    if (!ev.altKey || ev.ctrlKey || ev.metaKey || ev.shiftKey) return;
+    const step = { ArrowUp: -1, ArrowDown: 1, ArrowLeft: -1, ArrowRight: 1 }[ev.key];
+    if (!step || (ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') !== horizontal) return;
+    const p = pick(ev.target);
+    if (!p) return;
+    ev.preventDefault();
+    const to = p.from + step;
+    if (to < 0 || to >= p.group.length) return;
+    const ids = order(p.group.map(g => g.id), p.from, to);
+    try { await onMove(ids, p); } catch (e) { toast(e.message, 'err'); return; }
+    const again = container.querySelector(`[data-sort="${p.key}"]`);
+    if (again) again.focus();
+    announce(`${p.label} moved to position ${to + 1} of ${ids.length}`);
+  });
 }
 
 /* ---------- toasts ---------- */

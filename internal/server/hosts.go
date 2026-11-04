@@ -94,6 +94,31 @@ func (s *Server) checkParent(userID, id, parentID string) bool {
 	return parentID == ""
 }
 
+// handleOrderHosts and handleOrderFolders save a drag-and-drop order: the ids are the
+// items of one folder, first to last.
+func (s *Server) handleOrderHosts(w http.ResponseWriter, r *http.Request, a *authed) {
+	s.handleOrder(w, r, a, s.db.ReorderHosts)
+}
+
+func (s *Server) handleOrderFolders(w http.ResponseWriter, r *http.Request, a *authed) {
+	s.handleOrder(w, r, a, s.db.ReorderFolders)
+}
+
+func (s *Server) handleOrder(w http.ResponseWriter, r *http.Request, a *authed, save func(userID string, ids []string) error) {
+	var in struct {
+		IDs []string `json:"ids"`
+	}
+	if !decode(w, r, &in) || len(in.IDs) > 5000 {
+		apiErr(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	if err := save(a.user.ID, in.IDs); err != nil {
+		serverErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
 func (s *Server) handleCreateFolder(w http.ResponseWriter, r *http.Request, a *authed) {
 	var in folderInput
 	if !decode(w, r, &in) {

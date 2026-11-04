@@ -97,7 +97,7 @@ function folderOptions(selected, excludeId) {
   const skip = excludeId ? descendants(excludeId) : new Set();
   let out = `<option value="">Top level</option>`;
   const walk = (parent, depth) => {
-    for (const f of WS.folders.filter(x => x.parent_id === parent).sort(byName)) {
+    for (const f of WS.folders.filter(x => x.parent_id === parent)) { // the server sends them in the saved order
       if (skip.has(f.id)) continue;
       out += `<option value="${esc(f.id)}"${f.id === selected ? ' selected' : ''}>${'  '.repeat(depth)}${esc(f.name)}</option>`;
       walk(f.id, depth + 1);
@@ -124,21 +124,64 @@ function renderTree() {
   }
   const walk = (parent, depth) => {
     let out = '';
-    for (const f of WS.folders.filter(x => x.parent_id === parent).sort(byName)) {
+    for (const f of WS.folders.filter(x => x.parent_id === parent)) { // the server sends them in the saved order
       const open = !collapsed.has(f.id);
-      out += `<div class="row folder d${Math.min(depth, 6)}">
-        <button type="button" class="row-main" data-folder="${esc(f.id)}" aria-expanded="${open}">${icon('chevron-down', 'chev sm')}<span class="name">${esc(f.name)}</span></button>
+      out += `<div class="row folder d${Math.min(depth, 6)}" data-sort-kind="f" data-sort-id="${esc(f.id)}" data-sort-parent="${esc(parent)}" data-sort-depth="${depth}">
+        <button type="button" class="row-main" data-sort="f${esc(f.id)}" data-folder="${esc(f.id)}" aria-expanded="${open}">${icon('chevron-down', 'chev sm')}<span class="name">${esc(f.name)}</span></button>
         ${iconButton('dots', `Edit folder ${f.name}`, `data-edit-folder="${esc(f.id)}"`, 'kebab')}</div>`;
       if (open) out += walk(f.id, depth + 1);
     }
-    for (const h of WS.hosts.filter(x => x.folder_id === parent).sort(byName)) out += hostRow(h, { depth, live: live.has(h.id) });
+    for (const h of WS.hosts.filter(x => x.folder_id === parent)) out += hostRow(h, { depth, live: live.has(h.id) });
     return out;
   };
   tree.innerHTML = walk('', 0);
 }
 
+// The rows that can swap places with this one: same kind, same folder. A folder moves with its contents.
+function pickTreeRow(tree, target) {
+  const row = target.closest('.row');
+  if (!row || !tree.contains(row) || target.closest('.kebab')) return null;
+  const rows = [...tree.querySelectorAll('.row')];
+  const siblings = rows.filter(r => r.dataset.sortKind === row.dataset.sortKind && r.dataset.sortParent === row.dataset.sortParent);
+  const blockOf = r => {
+    const out = [r];
+    if (r.dataset.sortKind === 'f') {
+      for (let i = rows.indexOf(r) + 1; i < rows.length && Number(rows[i].dataset.sortDepth) > Number(r.dataset.sortDepth); i++) out.push(rows[i]);
+    }
+    return out;
+  };
+  return {
+    kind: row.dataset.sortKind, key: row.dataset.sortKind + row.dataset.sortId, label: row.querySelector('.name').textContent.trim(),
+    group: siblings.map(r => ({ id: r.dataset.sortId, els: blockOf(r) })), from: siblings.indexOf(row),
+  };
+}
+
+async function saveOrder(kind, ids) {
+  await api('POST', kind === 'h' ? '/hosts/order' : '/folders/order', { ids });
+  await loadHosts();
+}
+
+// Moves one host or folder a place up or down among its neighbours: the buttons in the edit dialogs.
+async function moveSibling(kind, id, step) {
+  const all = kind === 'h' ? WS.hosts : WS.folders;
+  const me = all.find(x => x.id === id);
+  const same = all.filter(x => (kind === 'h' ? x.folder_id === me.folder_id : x.parent_id === me.parent_id));
+  const from = same.indexOf(me), to = from + step;
+  if (to < 0 || to >= same.length) { toast(step < 0 ? 'Already first.' : 'Already last.'); return; }
+  const ids = same.map(x => x.id);
+  ids.splice(to, 0, ids.splice(from, 1)[0]);
+  await saveOrder(kind, ids);
+  announce(`${me.name} moved to position ${to + 1} of ${ids.length}`);
+}
+
+const moveButtons = () => iconButton('arrow-up', 'Move up', 'data-move="-1"') + iconButton('arrow-up', 'Move down', 'data-move="1"', 'rot-180');
+function bindMoveButtons(d, kind, id) {
+  d.querySelectorAll('[data-move]').forEach(b => b.addEventListener('click', () => moveSibling(kind, id, Number(b.dataset.move)).catch(e => toast(e.message, 'err'))));
+}
+
 function bindTree() {
   const tree = document.getElementById('tree');
+  enableSort(tree, { pick: t => pickTreeRow(tree, t), onMove: (ids, p) => saveOrder(p.kind, ids) });
   tree.addEventListener('click', ev => {
     const edit = ev.target.closest('[data-edit-host]');
     if (edit) return hostDialog(WS.hosts.find(h => h.id === edit.dataset.editHost));
@@ -258,7 +301,7 @@ function hostDialog(host, opts = {}) {
     </details>
     <label data-sshonly>Terminal colours<select name="theme">${themeOpts}</select></label>`, {
     wide: true,
-    extra: host ? '<button type="button" class="danger" data-del>Delete</button>' : '',
+    extra: host ? '<button type="button" class="danger" data-del>Delete</button>' + moveButtons() : '',
     onSubmit: async fd => {
       const rdp = fd.get('protocol') === 'rdp';
       const body = {
@@ -324,6 +367,7 @@ function hostDialog(host, opts = {}) {
     });
   });
 
+  if (host) bindMoveButtons(d, 'h', host.id);
   const del = d.querySelector('[data-del]');
   if (del) del.addEventListener('click', () => {
     d.close();
@@ -341,7 +385,7 @@ function folderDialog(folder, onClose = () => {}) {
   const d = dialog(folder ? 'Edit folder' : 'New folder', `
     <label>Name<input type="text" name="name" value="${esc(folder ? folder.name : '')}" required maxlength="80"></label>
     <label>Inside<select name="parent_id">${folderOptions(folder ? folder.parent_id : '', folder && folder.id)}</select></label>`, {
-    extra: folder ? '<button type="button" class="danger" data-del>Delete</button>' : '',
+    extra: folder ? '<button type="button" class="danger" data-del>Delete</button>' + moveButtons() : '',
     onSubmit: async fd => {
       saved = await api(folder ? 'PUT' : 'POST', folder ? '/folders/' + folder.id : '/folders', { name: fd.get('name'), parent_id: fd.get('parent_id') });
       await loadHosts();
@@ -349,6 +393,7 @@ function folderDialog(folder, onClose = () => {}) {
     },
   });
   d.addEventListener('close', () => onClose(saved));
+  if (folder) bindMoveButtons(d, 'f', folder.id);
   const del = d.querySelector('[data-del]');
   if (del) del.addEventListener('click', () => {
     d.close();
@@ -621,7 +666,10 @@ function ensureOpen(sess) {
     }
     return true;
   });
-  sess.term.onData(d => sendInput(sess, d));
+  sess.term.onData(d => {
+    if (sess.state === 'ended') { if (d === '\r') connect(sess); return; }
+    sendInput(sess, d);
+  });
   sess.term.onBinary(d => { if (sess.state === 'live' && sess.sock.readyState === 1) sess.sock.send(Uint8Array.from(d, c => c.charCodeAt(0))); });
   sess.term.onResize(({ cols, rows }) => sendCtl(sess, { type: 'resize', cols, rows }));
 }
@@ -701,8 +749,10 @@ function onControl(sess, m) {
       });
       break;
     case 'closed':
+      // The shell exited on purpose (exit, logout). That is not an error, so keep the output, say so,
+      // and let Enter start a new session. A connection that dropped is handled by the reconnect logic.
       setState(sess, 'ended');
-      showOverlay(sess, { title: 'Session ended', text: 'The host closed the session.', buttons: [{ label: 'Reconnect', cls: 'primary', fn: () => connect(sess) }, closeButton(sess)] });
+      sess.term.write('\r\n\x1b[2m[session ended. Press Enter to reconnect]\x1b[0m\r\n');
       break;
     default:
       break;
@@ -892,7 +942,7 @@ function renderTabs() {
     const n = all.length;
     const label = esc(all[0].host.name) + (n > 1 ? ` <span class="faint">+${n - 1}</span>` : '');
     return `<div class="tab${t === WS.active ? ' on' : ''}">
-      <button type="button" class="tab-main" data-tab="${t.id}" ${t === WS.active ? 'aria-current="true"' : ''} aria-label="${esc(all[0].host.name)}${n > 1 ? `, ${n} panes` : ''}, ${esc(t.active.state)}">${icon(protoIcon(all[0].host))}<span class="label">${label}</span><span class="dot ${t.active.state}" aria-hidden="true"></span></button>
+      <button type="button" class="tab-main" data-sort="t${t.id}" data-tab="${t.id}" ${t === WS.active ? 'aria-current="true"' : ''} aria-label="${esc(all[0].host.name)}${n > 1 ? `, ${n} panes` : ''}, ${esc(t.active.state)}">${icon(protoIcon(all[0].host))}<span class="label">${label}</span><span class="dot ${t.active.state}" aria-hidden="true"></span></button>
       ${iconButton('x', `Close ${all[0].host.name}`, `data-close="${t.id}"`, 'tab-x')}
     </div>`;
   }).join('') + iconButton('plus', 'Open a host', 'data-new', 'plus');
@@ -1220,7 +1270,19 @@ function mountWorkspace(shellEl, termRoot, idRoot) {
   document.getElementById('add-folder').addEventListener('click', () => folderDialog(null));
   document.getElementById('find').addEventListener('click', () => openPalette());
 
-  $q(termRoot, '#tabs').addEventListener('click', ev => {
+  const strip = $q(termRoot, '#tabs');
+  enableSort(strip, {
+    horizontal: true,
+    pick: target => {
+      const tab = target.closest('.tab');
+      if (!tab || !strip.contains(tab) || target.closest('.tab-x')) return null;
+      const tabs = [...strip.querySelectorAll('.tab')];
+      const idOf = t => t.querySelector('[data-tab]').dataset.tab;
+      return { key: 't' + idOf(tab), label: tab.querySelector('.label').textContent.trim(), group: tabs.map(t => ({ id: idOf(t), els: [t] })), from: tabs.indexOf(tab) };
+    },
+    onMove: ids => { WS.tabs = ids.map(id => WS.tabs.find(t => t.id === Number(id))); renderTabs(); },
+  });
+  strip.addEventListener('click', ev => {
     if (ev.target.closest('[data-new]')) return openPalette();
     const close = ev.target.closest('[data-close]');
     if (close) return closeTab(WS.tabs.find(t => t.id === Number(close.dataset.close)));
