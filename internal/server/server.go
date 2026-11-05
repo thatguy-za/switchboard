@@ -60,6 +60,7 @@ type Server struct {
 	tsMu       sync.Mutex
 	ts         map[string]tailnetBackend // each user has their own Tailscale node
 	tsNew      func(dir string) tailnetBackend
+	pveLimit   *limiter
 }
 
 func New(cfg Config, web fs.FS) (*Server, error) {
@@ -80,7 +81,7 @@ func New(cfg Config, web fs.FS) (*Server, error) {
 	}
 	s := &Server{
 		cfg: cfg, db: db, master: master, keyCreated: created, web: web,
-		sess: newSessions(), limit: newLimiter(20, time.Minute),
+		sess: newSessions(), limit: newLimiter(20, time.Minute), pveLimit: newLimiter(60, time.Minute),
 		dummyHash: crypto.HashPassword("dummy"), stop: make(chan struct{}),
 	}
 	s.ts = map[string]tailnetBackend{}
@@ -140,6 +141,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/folders/{id}", s.auth(true, s.handleDeleteFolder))
 	mux.HandleFunc("POST /api/hosts/order", s.auth(true, s.handleOrderHosts))
 	mux.HandleFunc("POST /api/folders/order", s.auth(true, s.handleOrderFolders))
+	mux.HandleFunc("GET /api/proxmox/servers", s.auth(true, s.handleListProxmoxServers))
+	mux.HandleFunc("POST /api/proxmox/probe", s.auth(true, s.handleProbeProxmox))
+	mux.HandleFunc("POST /api/proxmox/servers", s.auth(true, s.handleCreateProxmoxServer))
+	mux.HandleFunc("DELETE /api/proxmox/servers/{id}", s.auth(true, s.handleDeleteProxmoxServer))
+	mux.HandleFunc("GET /api/proxmox/vms", s.auth(true, s.handleProxmoxVMs))
+	mux.HandleFunc("GET /api/proxmox/suggest", s.auth(true, s.handleProxmoxSuggest))
+	mux.HandleFunc("GET /api/proxmox/servers/{id}/{kind}/{vmid}", s.auth(true, s.handleProxmoxStatus))
+	mux.HandleFunc("POST /api/proxmox/servers/{id}/{kind}/{vmid}/{action}", s.auth(true, s.handleProxmoxPower))
+	mux.HandleFunc("GET /api/hosts/{id}/reachable", s.auth(true, s.handleHostReachable))
 	mux.HandleFunc("GET /api/commands", s.auth(true, s.handleListCommands))
 	mux.HandleFunc("POST /api/commands", s.auth(true, s.handleCreateCommand))
 	mux.HandleFunc("POST /api/commands/order", s.auth(true, s.handleOrderCommands))

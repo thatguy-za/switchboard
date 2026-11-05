@@ -66,6 +66,18 @@ const nav = async tab => { await page.click('.nav[data-view=settings]'); await p
   await step('2fa dialog', async () => { await nav('security'); await page.click('#on'); await check('2fa-dialog'); await close(); });
   await step('add user', async () => { await nav('users'); await page.click('#add'); await check('add-user-dialog'); await close(); });
   await step('tailscale', async () => { await nav('tailscale'); await page.click('#tsedit'); await check('tailscale-dialog'); await close(); });
+  await step('proxmox', async () => {
+    await nav('proxmox'); await check('settings-proxmox');
+    await page.click('#pve-add'); await dlg().locator('input[name=address]').fill('https://pve:8006'); await check('proxmox-address-dialog');
+    await dlg().locator('button.primary').click(); await page.waitForSelector('dialog[open] code.fp');
+    await dlg().locator('input[name=token_id]').fill('webterm@pve!power'); await dlg().locator('input[name=secret]').fill('fake-secret-1234');
+    await check('proxmox-trust-dialog');
+    await dlg().locator('button.primary').click(); await page.waitForSelector('dialog[open]', { state: 'detached' });
+    await page.click('#nav-proxmox'); await page.locator('.item:has-text("docker-host")').waitFor(); await check('proxmox-page');
+    await page.click('[aria-label="Reboot docker-host"]'); await check('proxmox-confirm'); await close();
+    await page.click('.row.host:has-text("pi-hole") .kebab', { force: true });
+    await page.locator('select[name=pve] option:nth-child(2)').waitFor({ state: 'attached' }); await check('host-dialog-proxmox'); await close();
+  });
   await step('light', async () => {
     await nav('appearance'); await page.click('.seg button[data-theme=light]');
     await check('light-settings'); await page.click('.nav[data-view=identities]'); await check('light-identities');

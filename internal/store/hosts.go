@@ -17,6 +17,8 @@ type Host struct {
 	RDPSecurity                         string
 	RDPIgnoreCert                       bool
 	RDPOptions                          string // JSON: display and device settings
+	ProxmoxServerID, ProxmoxType        string // the Proxmox VM this host runs on, if linked
+	ProxmoxVMID                         int
 	CreatedAt                           int64
 }
 
@@ -99,12 +101,12 @@ func (s *Store) DeleteFolder(id, userID string) error {
 /* hosts */
 
 const hostCols = `id, user_id, COALESCE(folder_id, ''), name, address, port, username, auth,
-	COALESCE(identity_id, ''), password_blob, protocol, theme, rdp_security, rdp_ignore_cert, rdp_options, created_at`
+	COALESCE(identity_id, ''), password_blob, protocol, theme, rdp_security, rdp_ignore_cert, rdp_options, COALESCE(proxmox_server_id, ''), proxmox_vmid, proxmox_type, created_at`
 
 func scanHost(r scanner) (*Host, error) {
 	var h Host
 	err := r.Scan(&h.ID, &h.UserID, &h.FolderID, &h.Name, &h.Address, &h.Port, &h.Username, &h.Auth,
-		&h.IdentityID, &h.PasswordBlob, &h.Protocol, &h.Theme, &h.RDPSecurity, &h.RDPIgnoreCert, &h.RDPOptions, &h.CreatedAt)
+		&h.IdentityID, &h.PasswordBlob, &h.Protocol, &h.Theme, &h.RDPSecurity, &h.RDPIgnoreCert, &h.RDPOptions, &h.ProxmoxServerID, &h.ProxmoxVMID, &h.ProxmoxType, &h.CreatedAt)
 	return &h, found(err)
 }
 
@@ -132,10 +134,11 @@ func (s *Store) GetHost(id, userID string) (*Host, error) {
 func (s *Store) CreateHost(h *Host) error {
 	h.CreatedAt = time.Now().Unix()
 	_, err := s.db.Exec(`INSERT INTO hosts (id, user_id, folder_id, name, address, port, username, auth,
-		identity_id, password_blob, protocol, theme, rdp_security, rdp_ignore_cert, rdp_options, created_at, position) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+		identity_id, password_blob, protocol, theme, rdp_security, rdp_ignore_cert, rdp_options, proxmox_server_id, proxmox_vmid, proxmox_type, created_at, position) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,
 		(SELECT COALESCE(MAX(position) + 1, 0) FROM hosts WHERE user_id=? AND COALESCE(folder_id, '')=?))`,
 		h.ID, h.UserID, nullable(h.FolderID), h.Name, h.Address, h.Port, h.Username, h.Auth,
-		nullable(h.IdentityID), h.PasswordBlob, h.Protocol, h.Theme, h.RDPSecurity, h.RDPIgnoreCert, h.RDPOptions, h.CreatedAt,
+		nullable(h.IdentityID), h.PasswordBlob, h.Protocol, h.Theme, h.RDPSecurity, h.RDPIgnoreCert, h.RDPOptions,
+		nullable(h.ProxmoxServerID), h.ProxmoxVMID, h.ProxmoxType, h.CreatedAt,
 		h.UserID, h.FolderID)
 	return err
 }
@@ -146,10 +149,10 @@ func (s *Store) UpdateHost(h *Host) error {
 		position = CASE WHEN COALESCE(folder_id, '') = ? THEN position
 			ELSE (SELECT COALESCE(MAX(position) + 1, 0) FROM hosts x WHERE x.user_id=? AND COALESCE(x.folder_id, '')=?) END,
 		folder_id=?, name=?, address=?, port=?, username=?, auth=?,
-		identity_id=?, password_blob=?, theme=?, protocol=?, rdp_security=?, rdp_ignore_cert=?, rdp_options=? WHERE id=? AND user_id=?`,
+		identity_id=?, password_blob=?, theme=?, protocol=?, rdp_security=?, rdp_ignore_cert=?, rdp_options=?, proxmox_server_id=?, proxmox_vmid=?, proxmox_type=? WHERE id=? AND user_id=?`,
 		h.FolderID, h.UserID, h.FolderID,
 		nullable(h.FolderID), h.Name, h.Address, h.Port, h.Username, h.Auth,
-		nullable(h.IdentityID), h.PasswordBlob, h.Theme, h.Protocol, h.RDPSecurity, h.RDPIgnoreCert, h.RDPOptions, h.ID, h.UserID)
+		nullable(h.IdentityID), h.PasswordBlob, h.Theme, h.Protocol, h.RDPSecurity, h.RDPIgnoreCert, h.RDPOptions, nullable(h.ProxmoxServerID), h.ProxmoxVMID, h.ProxmoxType, h.ID, h.UserID)
 	return err
 }
 

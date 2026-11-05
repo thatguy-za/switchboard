@@ -193,8 +193,8 @@ dialog.palette { width: min(var(--w-palette), calc(100% - var(--s-12))); margin:
 .tbox .text { color: var(--text-2); overflow-wrap: anywhere; }
 .tbox .actions { display: flex; gap: var(--s-4); margin-top: var(--s-3); }
 .tbox .tb-head + .actions:empty { display: none; }
-.tbox .fp-label { display: block; margin-top: var(--s-5); font-size: var(--fs-2xs); font-weight: var(--fw-medium); color: var(--text-3); }
-.tbox code.fp { display: block; margin-top: var(--s-2); padding: var(--s-4) var(--s-5); background: var(--surface-field); border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--text); word-break: break-all; font: var(--fs-xs) / var(--lh-base) var(--font-mono); }
+.tbox .fp-label, .dlg-body .fp-label { display: block; margin-top: var(--s-5); font-size: var(--fs-2xs); font-weight: var(--fw-medium); color: var(--text-3); }
+.tbox code.fp, .dlg-body code.fp { display: block; margin-top: var(--s-2); padding: var(--s-4) var(--s-5); background: var(--surface-field); border: 1px solid var(--line); border-radius: var(--r-sm); color: var(--text); word-break: break-all; font: var(--fs-xs) / var(--lh-base) var(--font-mono); }
 
 /* @component tabs */
 .tabs { display: flex; align-items: flex-end; gap: var(--s-1); height: var(--h-tabs); padding: 0 var(--s-6); border-bottom: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; flex: none; }
@@ -212,6 +212,10 @@ dialog.palette { width: min(var(--w-palette), calc(100% - var(--s-12))); margin:
 .nav { display: flex; align-items: center; gap: var(--s-5); height: var(--h-nav); padding: 0 var(--s-5); width: 100%; justify-content: flex-start; border: 0; background: transparent; color: var(--text-2); border-radius: var(--r-sm); font-weight: var(--fw-regular); }
 .nav:hover { background: var(--surface-hover); color: var(--text); }
 .nav[aria-current=page] { background: var(--surface-selected); color: var(--text); }
+button.icon.danger { color: var(--danger); }
+.pve-note.suggest { display: flex; align-items: center; gap: var(--s-4); padding: var(--s-4) var(--s-5); border-radius: var(--r-sm); background: var(--acc-soft); color: var(--text); }
+.pve-power { display: flex; align-items: center; gap: var(--s-4); flex-wrap: wrap; }
+.pve-power:empty, .pve-note:empty { display: none; }
 .nav[hidden] { display: none; }
 .nav .state { margin-left: auto; font-size: var(--fs-2xs); color: var(--text-3); }
 .nav .badge { margin-left: auto; width: var(--size-dot); height: var(--size-dot); border-radius: 50%; background: var(--warn); }

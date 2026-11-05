@@ -316,7 +316,9 @@ function hostDialog(host, opts = {}) {
       ${checkField('clipboard', 'Share the clipboard', 'Copy and paste between this browser and the desktop.', '', rdpOpts.clipboard)}
       ${checkField('files', 'Allow file transfer', 'Upload to and download from the desktop.', '', rdpOpts.files)}
     </details>
-    <label data-sshonly>Terminal colours<select name="theme">${themeOpts}</select></label>`, {
+    <label data-sshonly>Terminal colours<select name="theme">${themeOpts}</select></label>
+    ${PVE.servers.length ? `<label>Proxmox VM<select name="pve"><option value="">Loading…</option></select></label>
+      <div class="pve-note small muted" id="pve-note"></div><div class="pve-power" id="pve-power"></div>` : ''}`, {
     wide: true,
     extra: host ? '<button type="button" class="danger" data-del>Delete</button>' + moveButtons() : '',
     onSubmit: async fd => {
@@ -328,6 +330,7 @@ function hostDialog(host, opts = {}) {
         identity_id: !rdp && fd.get('auth') === 'key' ? fd.get('identity_id') : '', theme: rdp ? 'auto' : fd.get('theme'),
         security: fd.get('security'), ignore_cert: fd.get('ignore_cert') !== null,
         rdp: rdp ? rdpFromForm(fd) : undefined,
+        proxmox: proxmoxFromForm(fd, host),
       };
       if (rdp && !host && !fd.get('password')) throw new Error('Enter the password for this host.');
       if (body.auth === 'key' && !body.identity_id) throw new Error('Choose an identity, or create one on the Identities page.');
@@ -385,6 +388,7 @@ function hostDialog(host, opts = {}) {
   });
 
   if (host) bindMoveButtons(d, 'h', host.id);
+  bindProxmoxField(d, host);
   const del = d.querySelector('[data-del]');
   if (del) del.addEventListener('click', () => {
     d.close();
@@ -878,6 +882,12 @@ function renderLayout(wtab) {
 
 function openHost(host) {
   if (!host) return;
+  // A host on a Proxmox VM offers to start the VM first if it is off.
+  if (host.proxmox) return pveGuard(host, opts => startHost(host, opts));
+  startHost(host);
+}
+
+function startHost(host, { wait = false } = {}) {
   noteRecent(host);
   const wtab = { id: WS.nextTab++, root: null, active: null, el: el('div', 'layout') };
   const sess = newSession(host, wtab);
@@ -888,7 +898,7 @@ function openHost(host) {
   showView('terminals');
   activateTab(wtab);
   renderLayout(wtab);
-  connect(sess);
+  if (wait) pveWaitThenConnect(sess); else connect(sess);
 }
 
 function splitSession(sess, dir) {

@@ -33,7 +33,7 @@ async function api(method, path, body) {
   try { data = await res.json(); } catch (e) { /* empty body */ }
   if (!res.ok) {
     if (res.status === 401 && data.error === 'unauthorized' && shell) refresh();
-    const err = new Error(messages[data.error] || 'Something went wrong.');
+    const err = new Error(data.message || messages[data.error] || 'Something went wrong.');
     err.code = data.error;
     err.status = res.status;
     throw err;
@@ -400,6 +400,7 @@ function buildShell() {
         <div class="tree" id="tree"></div>
         <div class="side-foot">
           <button class="nav" id="ts-status" type="button" hidden></button>
+          <button class="nav" data-view="proxmox" id="nav-proxmox" hidden>${icon('server')}Proxmox</button>
           <button class="nav" data-view="identities">${icon('key')}Identities</button>
           <button class="nav" data-view="settings">${icon('settings')}Settings<span class="badge" id="navflag" hidden></span></button>
           <div class="me"><span id="avatar"></span>
@@ -412,6 +413,7 @@ function buildShell() {
         <div class="topbar">${iconButton('menu-2', 'Open menu', 'id="menu"')}${logo()}</div>
         <div class="view" id="view-terminals"></div>
         <div class="view" id="view-identities" hidden></div>
+        <div class="view" id="view-proxmox" hidden></div>
         <div class="view" id="view-settings" hidden></div>
       </main>
     </div>`;
@@ -428,6 +430,7 @@ function buildShell() {
   updateNav();
   showView('terminals');
   $('#ts-status', shell).addEventListener('click', () => { settingsTab = 'tailscale'; renderSettings(); showView('settings'); });
+  loadProxmoxServers().catch(() => {});
   pollTailscale();
   tsPoll = setInterval(() => { if (!document.hidden) pollTailscale(); }, 30000);
 }
@@ -472,11 +475,12 @@ function toggleSide(open) {
 function showView(name) {
   if (!shell) return;
   toggleSide(false);
-  for (const v of ['terminals', 'identities', 'settings']) $('#view-' + v, shell).hidden = v !== name;
+  for (const v of ['terminals', 'identities', 'proxmox', 'settings']) $('#view-' + v, shell).hidden = v !== name;
   document.title = (name === 'terminals' ? '' : name[0].toUpperCase() + name.slice(1) + ' · ') + 'WebTerm';
   shell.querySelectorAll('.nav[data-view]').forEach(b => {
     if (b.dataset.view === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
+  if (name === 'proxmox') renderProxmoxPage();
   if (name === 'terminals') requestAnimationFrame(() => { fitActive(); if (WS.active) sessFocus(WS.active.active); });
 }
 
@@ -492,7 +496,7 @@ function updateNav() {
 function renderSettings() {
   const root = $('#view-settings', shell);
   const admin = state.user.role === 'admin';
-  const tabs = [['account', 'Account', 'user'], ['security', 'Security', 'shield-lock'], ['appearance', 'Appearance', 'palette'], ['tailscale', 'Tailscale', 'network']];
+  const tabs = [['account', 'Account', 'user'], ['security', 'Security', 'shield-lock'], ['appearance', 'Appearance', 'palette'], ['tailscale', 'Tailscale', 'network'], ['proxmox', 'Proxmox', 'server']];
   if (admin) tabs.push(['users', 'Users', 'users'], ['server', 'Server', 'server']);
   if (!tabs.some(t => t[0] === settingsTab)) settingsTab = 'account';
   root.innerHTML = `<div class="page"><div class="page-in">
@@ -618,6 +622,9 @@ async function renderSettingsBody() {
       renderSettingsBody();
       toast('Marked as backed up');
     });
+  } else if (settingsTab === 'proxmox') {
+    body.innerHTML = '<div class="stack" id="px"></div>';
+    renderProxmoxSettings($('#px', body));
   } else if (settingsTab === 'tailscale') {
     body.innerHTML = '<div class="stack" id="ts"></div>';
     renderTailscale($('#ts', body));

@@ -34,6 +34,7 @@ type hostView struct {
 	Security    string      `json:"security"`
 	IgnoreCert  bool        `json:"ignore_cert"`
 	RDP         *rdpOptions `json:"rdp,omitempty"`
+	Proxmox     *pveLink    `json:"proxmox,omitempty"`
 }
 
 func toHostView(h *store.Host) hostView {
@@ -43,6 +44,9 @@ func toHostView(h *store.Host) hostView {
 	if h.Protocol == "rdp" {
 		o := parseRDPOptions(h.RDPOptions)
 		v.RDP = &o
+	}
+	if h.ProxmoxServerID != "" {
+		v.Proxmox = &pveLink{ServerID: h.ProxmoxServerID, VMID: h.ProxmoxVMID, Type: h.ProxmoxType}
 	}
 	return v
 }
@@ -187,7 +191,8 @@ type hostInput struct {
 	Protocol   string      `json:"protocol"`
 	Security   string      `json:"security"`
 	IgnoreCert *bool       `json:"ignore_cert"`
-	RDP        *rdpOptions `json:"rdp"` // nil keeps the saved settings
+	RDP        *rdpOptions `json:"rdp"`     // nil keeps the saved settings
+	Proxmox    *pveLink    `json:"proxmox"` // nil keeps the saved link; {"server_id": ""} removes it
 }
 
 // applyHostInput validates in and copies it onto h, sealing any new password
@@ -250,6 +255,11 @@ func (s *Server) applyHostInput(h *store.Host, in *hostInput, a *authed) string 
 	}
 	if h.RDPSecurity == "" {
 		h.RDPSecurity = "any"
+	}
+	if in.Proxmox != nil {
+		if code := s.applyProxmoxLink(h, in.Proxmox, a); code != "" {
+			return code
+		}
 	}
 	if in.Auth == "password" {
 		h.IdentityID = ""

@@ -15,7 +15,8 @@ const dlg = () => page.locator('dialog[open]');
   page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  page.on('console', m => { if (m.type() === 'error') errors.push('console: ' + m.text()); });
+  // A 502 is how a refused Proxmox token reaches the page, which one step does on purpose.
+  page.on('console', m => { if (m.type() === 'error' && !/status of 502/.test(m.text())) errors.push('console: ' + m.text()); });
   page.on('response', r => { if (r.status() >= 400 && !r.url().includes('/api/')) errors.push(`http ${r.status()} ${r.url()}`); });
 
   await step('setup page', async () => { await page.goto('/'); await page.waitForSelector('form'); await snap('00-setup'); });
@@ -346,6 +347,70 @@ const dlg = () => page.locator('dialog[open]');
     await page.unroute('**/api/tailscale');
     await page.evaluate(() => pollTailscale());
     await page.locator('#ts-status').waitFor({ state: 'hidden' });
+  });
+  await step('proxmox: connect, pin the certificate, list VMs', async () => {
+    await nav('proxmox');
+    await page.click('#pve-add');
+    await dlg().locator('input[name=address]').fill('https://pve:8006');
+    await dlg().locator('button.primary').click();
+    await page.waitForSelector('dialog[open] code.fp');
+    const fp = await dlg().locator('code.fp').innerText();
+    if (!/^([0-9A-F]{2}:){31}[0-9A-F]{2}$/.test(fp)) throw new Error('no certificate fingerprint shown: ' + fp);
+    await snap('07a-proxmox-trust');
+    // A wrong secret is refused with a reason, and nothing is saved.
+    await dlg().locator('input[name=token_id]').fill('webterm@pve!power');
+    await dlg().locator('input[name=secret]').fill('wrong-secret');
+    await dlg().locator('button.primary').click();
+    await dlg().locator('.err:has-text("rejected the API token")').waitFor();
+    await dlg().locator('input[name=secret]').fill('fake-secret-1234');
+    await dlg().locator('button.primary').click();
+    await page.waitForSelector('dialog[open]', { state: 'detached' });
+    await page.locator('#nav-proxmox:visible').waitFor();
+    await page.click('#nav-proxmox');
+    await page.locator('.item:has-text("docker-host")').waitFor();
+    await snap('07b-proxmox-page');
+    if (!(await page.locator('.item:has-text("win11-test") button:has-text("Start")').count())) throw new Error('a stopped VM has no Start button');
+    if (await page.locator('.item:has-text("template")').count()) throw new Error('a template was listed');
+  });
+  await step('proxmox: start, shut down, and ask before interrupting', async () => {
+    await page.click('[aria-label="Start win11-test"]');
+    await page.locator('[aria-label="Shut down win11-test"]').waitFor({ timeout: 15000 });
+    // Reboot asks first: cancelling changes nothing.
+    await page.click('[aria-label="Reboot docker-host"]');
+    await dlg().locator('text=Reboot docker-host?').waitFor();
+    await snap('07c-proxmox-confirm');
+    await dlg().locator('[data-cancel]').first().click();
+    await page.click('[aria-label="Stop docker-host (cuts the power)"]');
+    await dlg().locator('text=pulling the plug').waitFor();
+    await dlg().locator('[data-cancel]').first().click();
+    await page.click('[aria-label="Shut down win11-test"]');
+    await dlg().locator('button:has-text("Shut down")').last().click();
+    await page.locator('[aria-label="Start win11-test"]').waitFor({ timeout: 15000 });
+  });
+  await step('proxmox: link a host, then start its VM and connect', async () => {
+    await page.click('.row.host:has-text("nas") .kebab', { force: true });
+    await page.locator('#pve-use').waitFor({ timeout: 15000 }); // the VM named nas is suggested
+    await snap('07d-proxmox-link');
+    await page.click('#pve-use');
+    await dlg().locator('button.primary').click();
+    await page.waitForSelector('dialog[open]', { state: 'detached' });
+    // Close any tab already open on nas, so opening it makes a new one.
+    await page.click('.row.host:has-text("nas") .row-main');
+    await dlg().locator('text=nas is powered off').waitFor();
+    await snap('07e-proxmox-off');
+    await dlg().locator('button:has-text("Start and connect")').click();
+    await page.locator('.tbox:has-text("Starting nas")').waitFor({ timeout: 10000 });
+    await snap('07f-proxmox-starting');
+    await page.waitForFunction(() => { const t = [...document.querySelectorAll('.tab.on')]; return t.length && t[0].querySelector('.dot.live'); }, null, { timeout: 60000 })
+      .catch(async () => { if (await page.locator('button:has-text("Trust and connect")').count()) { await page.click('button:has-text("Trust and connect")'); await page.waitForSelector('.tab.on .dot.live', { timeout: 20000 }); } else throw new Error('did not connect after starting the VM'); });
+  });
+  await step('proxmox: removing the server unlinks hosts and hides the page', async () => {
+    await nav('proxmox');
+    await page.click('[data-pve-remove]');
+    await dlg().locator('button:has-text("Remove")').last().click();
+    await page.locator('#nav-proxmox').waitFor({ state: 'hidden' });
+    const linked = await page.evaluate(async () => (await api('GET', '/hosts')).hosts.filter(h => h.proxmox).length);
+    if (linked) throw new Error('a host is still linked after the server was removed');
   });
   await step('light theme', async () => {
     await nav('appearance');
