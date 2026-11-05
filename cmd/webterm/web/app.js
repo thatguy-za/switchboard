@@ -402,8 +402,9 @@ function buildShell() {
           <button class="nav" id="ts-status" type="button" hidden></button>
           <button class="nav" data-view="identities">${icon('key')}Identities</button>
           <button class="nav" data-view="settings">${icon('settings')}Settings<span class="badge" id="navflag" hidden></span></button>
-          <div class="me"><span id="avatar"></span><span class="grow" id="whoami"></span>${iconButton('logout', 'Sign out', 'id="out"')}</div>
-          <div class="version">Version ${esc(state.version || 'dev')}</div>
+          <div class="me"><span id="avatar"></span>
+            <div class="who"><span id="whoami"></span><span class="version"><span class="sr-only">Version </span>${esc(state.version || 'dev')}</span></div>
+            ${iconButton('logout', 'Sign out', 'id="out"')}</div>
         </div>
       </aside>
       <div class="scrim" id="scrim"></div>
@@ -446,7 +447,7 @@ function showTailscaleStatus(t) {
   }[t.state];
   b.hidden = !t.enabled || !shown;
   if (b.hidden) return;
-  b.innerHTML = `<span class="dot ${shown[0]}" aria-hidden="true"></span>Tailscale<span class="state">${shown[1]}</span>`;
+  b.innerHTML = `<span class="status-icon">${icon('network')}<span class="dot ${shown[0]}" aria-hidden="true"></span></span>Tailscale<span class="state">${shown[1]}</span>`;
   b.setAttribute('aria-label', `Tailscale: ${shown[1]}. Open Tailscale settings`);
 }
 

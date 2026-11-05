@@ -31,7 +31,7 @@ const dlg = () => page.locator('dialog[open]');
     await page.waitForSelector('#shell');
   });
   await step('version shows in the sidebar', async () => {
-    if (!/Version \S+/.test(await page.locator('.side .version').innerText())) throw new Error('no version in the sidebar');
+    if (!/Version \S+/.test(await page.locator('.side .version').textContent())) throw new Error('no version in the sidebar');
   });
   await step('welcome (no hosts)', async () => { await snap('02-welcome-empty'); });
 

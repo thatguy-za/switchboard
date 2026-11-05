@@ -23,7 +23,11 @@
 .version { margin: 0; padding: 0 var(--s-5); font-size: var(--fs-2xs); color: var(--text-3); }
 .auth-box .version { padding: 0; text-align: center; }
 .side-foot { padding: var(--s-4); border-top: 1px solid var(--line); display: grid; gap: 1px; }
-.me { display: flex; align-items: center; gap: var(--s-5); padding: var(--s-4) var(--s-3) var(--s-1) var(--s-5); color: var(--text-2); }
+.me { display: flex; align-items: center; gap: var(--s-5); margin-top: var(--s-3); padding: var(--s-5) var(--s-3) var(--s-2) var(--s-5); border-top: 1px solid var(--line); color: var(--text-2); }
+.me .who { flex: 1; min-width: 0; display: grid; line-height: var(--lh-tight); }
+.me .version { padding: 0; }
+.status-icon { position: relative; display: inline-flex; }
+.status-icon .dot { position: absolute; top: calc(var(--s-2) * -1); right: calc(var(--s-2) * -1); box-shadow: 0 0 0 var(--s-1) var(--surface-side); }
 .main:focus { outline: none; }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
 .view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
