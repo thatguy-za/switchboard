@@ -156,9 +156,26 @@ function pickTreeRow(tree, target) {
   };
 }
 
+// A row slides from where it was to where it is now (a FLIP animation), so a reorder reads as movement.
+// The CSS rule for reduced motion cannot reach animations made in script, so it is checked here.
+const rowTops = tree => new Map([...tree.querySelectorAll('.row[data-sort-id]')].map(r => [r.dataset.sortKind + r.dataset.sortId, r.getBoundingClientRect().top]));
+function slideRows(tree, before) {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const css = getComputedStyle(document.documentElement);
+  const timing = { duration: parseFloat(css.getPropertyValue('--dur-base')), easing: css.getPropertyValue('--ease-out').trim() };
+  tree.querySelectorAll('.row[data-sort-id]').forEach(r => {
+    const was = before.get(r.dataset.sortKind + r.dataset.sortId);
+    const dy = was === undefined ? 0 : was - r.getBoundingClientRect().top;
+    if (Math.abs(dy) > 1) r.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], timing);
+  });
+}
+
 async function saveOrder(kind, ids) {
+  const tree = document.getElementById('tree');
+  const before = rowTops(tree);
   await api('POST', kind === 'h' ? '/hosts/order' : '/folders/order', { ids });
   await loadHosts();
+  slideRows(tree, before);
 }
 
 // Moves one host or folder a place up or down among its neighbours: the buttons in the edit dialogs.

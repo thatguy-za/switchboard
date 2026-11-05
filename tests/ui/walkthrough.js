@@ -201,6 +201,13 @@ const dlg = () => page.locator('dialog[open]');
     const folders = await folderRows();
     await snap('06f-reordered');
 
+    // Rows slide into place rather than jumping: Alt+arrow on a host starts animations on the rows.
+    await page.locator('.row.host:has-text("nas") .row-main').focus();
+    const nowNames = await hostNames();
+    await page.keyboard.press(nowNames.indexOf('nas') < nowNames.indexOf('pi-hole') ? 'Alt+ArrowDown' : 'Alt+ArrowUp');
+    await page.waitForFunction(() => document.getAnimations().some(a => a.effect && a.effect.target && a.effect.target.classList && a.effect.target.classList.contains('row')),
+      null, { polling: 'raf', timeout: 5000 }).catch(() => { throw new Error('moving a host did not animate the rows'); });
+
     // The same without dragging: the buttons in the edit dialog.
     await page.click('.row.host:has-text("pi-hole") .kebab', { force: true });
     const movedFrom = await hostNames();
