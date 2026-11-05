@@ -13,3 +13,5 @@ Drive the real app in headless Chromium and save screenshots to `tests/ui/out/`.
   `pve`, so the Proxmox screens can be tested and photographed. To try it by hand, run it next to a WebTerm on one Docker
   network: `openssl req -x509 -newkey rsa:2048 -nodes -keyout /tmp/k.pem -out /tmp/c.pem -subj /CN=pve`, then
   `node fakepve.js`, and connect WebTerm to `https://pve:8006`.
+- `preview.sh` starts a throwaway WebTerm at http://localhost:3001 next to the fake Proxmox and a test SSH server, to try
+  the Proxmox screens by hand. Its comments list the token and test login to use. `preview.sh down` stops it.
