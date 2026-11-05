@@ -76,6 +76,27 @@ to edit, reorder or delete them, and the arrow to hide the bar (bring it back fr
 `{{host}}` and `{{user}}` in a command are replaced with the host's address and username. Commands belong
 to your account and are stored encrypted in your vault. Remote desktops don't show the bar.
 
+## Proxmox
+
+Connect a Proxmox VE server in **Settings → Proxmox**, and a **Proxmox** page appears in the sidebar listing its VMs and
+containers with their state, and buttons to start, shut down, reboot or stop each one.
+
+- **Connecting:** enter the web address (`https://pve.lan:8006`). WebTerm shows the certificate the server presents; check
+  its fingerprint against the one in Proxmox, then enter an API token (ID like `webterm@pve!power`, plus the secret).
+  The token is checked before anything is saved and the secret is stored encrypted in your vault. From then on WebTerm only
+  talks to a server presenting that exact certificate, and tells you if it changes (remove the server and add it again if
+  that was expected).
+- **Token permissions:** in Proxmox, Datacenter → Permissions → API Tokens, add a token with *Privilege Separation* on and
+  give it the `PVEVMUser` role on the VMs you want to control (it covers `VM.PowerMgmt` and `VM.Audit`). That is all WebTerm
+  needs. It reaches the server over your tailnet when its address calls for it (see Tailscale).
+- **Power buttons:** *Shut down* asks the guest to shut down cleanly, *Reboot* asks it to restart, and *Stop* (the square
+  beside Shut down) cuts the power like pulling the plug, for a stuck guest. All three ask first; *Start* does not.
+- **Linking a host:** in a host's edit dialog, choose its VM under *Proxmox VM*. If a VM has the same name as the host, or its
+  guest agent reports the host's address, WebTerm suggests it. A linked host shows its VM's state and power buttons in the
+  dialog, and opening it while the VM is off offers *Start and connect*: WebTerm starts the VM, waits for the host to answer,
+  and opens the terminal. Removing the server unlinks its hosts.
+- **Several servers:** you can connect more than one. Each user connects their own.
+
 ## Tailscale
 
 WebTerm can join your tailnet itself, with nothing extra to run, and every user does it for themselves.

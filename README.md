@@ -49,6 +49,7 @@ proxy in front: see [HTTPS and reverse proxies](docs/guide.md#https-and-reverse-
 - **Remote desktops (RDP)** in the same tabs, with clipboard, file transfer, audio and per-host display settings.
 - **Split panes**: up to six sessions side by side in one tab.
 - **Saved commands**: a bar under each terminal with commands you use often.
+- **Proxmox**: list your VMs and containers, start, shut down and reboot them, and link a host to its VM so opening it can start the VM first.
 - **Key management**: generate or import SSH keys, and push a public key to many hosts at once.
 - **Tailscale built in**: each user can join their own tailnet from Settings, then reach hosts by tailnet name or IP.
 - **Several users**, each with their own encrypted vault, optional two-factor sign-in, and recovery key.
@@ -71,7 +72,8 @@ This is what WebTerm does to protect what you store in it.
 **Secrets stay on the server.**
 - Saved passwords and keys are decrypted only while connecting, and are never sent to your browser.
   Viewing a saved password or exporting a private key asks for your account password again.
-- Saved commands are encrypted the same way, per user.
+- Saved commands and Proxmox API tokens are encrypted the same way, per user.
+- WebTerm only talks to a Proxmox server that presents the exact certificate you checked and pinned when you added it, and says so if it ever changes.
 
 **Sign-in and sessions.**
 - Sessions use 256-bit random tokens in `HttpOnly`, `SameSite=Strict` cookies (also `Secure` behind HTTPS),
